@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Messenger</title>
+<style>
+  /* ... (все твои старые стили остаются без изменений) ... */
+  .b { /* твои стили для сообщений */ }
+  .call-btn { background:#34a853; color:white; border:none; border-radius:50%; width:44px; height:44px; font-size:20px; cursor:pointer; margin-left:8px; }
+  .call-modal { position:fixed; inset:0; background:#000a; display:flex; align-items:center; justify-content:center; z-index:1000; }
+  .call-box { background:white; padding:30px; border-radius:16px; text-align:center; min-width:280px; }
+  .call-box button { padding:12px 24px; margin:8px; border-radius:8px; border:none; cursor:pointer; font-size:16px; }
+  .accept { background:#34a853; color:white; }
+  .reject { background:#ea4335; color:white; }
+  .end { background:#ea4335; color:white; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// ... (твой старый код мессенджера остаётся, добавляем звонок) ...
+
+// --- ЗВОНОК ---
+let callState = { active:false, peerConnection:null, localStream:null, remoteStream:null, roomId:null, role:null };
+
+// 1. Кнопка "Позвонить" в чате
+function addCallButton() {
+  const head = document.querySelector('.head');
+  if (head && !document.getElementById('callBtn')) {
+    const btn = document.createElement('button');
+    btn.id = 'callBtn';
+    btn.className = 'call-btn';
+    btn.textContent = '📞';
+    btn.onclick = startCall;
+    head.appendChild(btn);
+  }
+}
+
+// 2. Начало звонка (создаём "комнату")
+async function startCall() {
+  if (!state.peer) return alert('Сначала выберите пользователя');
+  callState.roomId = Math.random().toString(36).substring(2, 8); // случайный код
+  callState.role = 'caller';
+  location.hash = callState.roomId; // кладём код в ссылку
+  await setupWebRTC();
+  showCallUI('Ожидание ответа...');
+  // Отправляем сообщение собеседнику (просто текст с кодом)
+  await api('/api/messages', { method:'POST', body: JSON.stringify({ receiver: state.peer.id, text: `📞 Звонок: ${location.href}` }) });
+}
+
+// 3. Настройка WebRTC
+async function setupWebRTC() {
+  callState.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  callState.peerConnection = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  });
+  
+  callState.localStream.getTracks().forEach(track => callState.peerConnection.addTrack(track, callState.localStream));
+  
+  callState.peerConnection.ontrack = (event) => {
+    callState.remoteStream = event.streams[0];
+    const audio = new Audio();
+    audio.srcObject = callState.remoteStream;
+    audio.play();
+  };
+
+  if (callState.role === 'caller') {
+    const offer = await callState.peerConnection.createOffer();
+    await callState.peerConnection.setLocalDescription(offer);
+    await sendSignal(offer);
+  }
+}
+
+// 4. Отправка сигналов (через сервер)
+async function sendSignal(data) {
+  await api('/api/signal', { method:'POST', body: JSON.stringify({ room: callState.roomId, data }) });
+}
+
+// 5. Приём сигналов (поллинг)
+setInterval(async () => {
+  if (callState.roomId && callState.peerConnection) {
+    const res = await fetch(`/api/signal/${callState.roomId}`).then(r => r.json()).catch(()=>null);
+    if (res && res.data && res.data.type === 'offer' && callState.role === 'callee') {
+      await callState.peerConnection.setRemoteDescription(res.data);
+      const answer = await callState.peerConnection.createAnswer();
+      await callState.peerConnection.setLocalDescription(answer);
+      await sendSignal(answer);
+    } else if (res && res.data && res.data.type === 'answer' && callState.role === 'caller') {
+      await callState.peerConnection.setRemoteDescription(res.data);
+    }
+  }
+}, 2000);
+
+// 6. Завершение звонка
+function endCall() {
+  if (callState.peerConnection) callState.peerConnection.close();
+  if (callState.localStream) callState.localStream.getTracks().forEach(t => t.stop());
+  callState = { active:false, peerConnection:null, localStream:null, remoteStream:null, roomId:null, role:null };
+  location.hash = '';
+  hideCallUI();
+}
+
+// 7. UI звонка (модалка)
+function showCallUI(text) {
+  let modal = document.getElementById('callModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'callModal';
+    modal.className = 'call-modal';
+    modal.innerHTML = `
+      <div class="call-box">
+        <h3>${text || 'Звонок'}</h3>
+        <div id="callStatus"></div>
+        <div id="callControls">
+          <button class="accept" onclick="acceptCall()" style="display:none">Принять</button>
+          <button class="reject" onclick="endCall()">Сбросить</button>
+        </div>
+        <input type="range" min="0" max="1" step="0.1" value="1" id="volSlider" oninput="document.querySelectorAll('audio').forEach(a=>a.volume=this.value)">
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+}
+function hideCallUI() {
+  const modal = document.getElementById('callModal');
+  if (modal) modal.style.display = 'none';
+}
+
+// Принимаем входящий звонок (если в ссылке есть код)
+function acceptCall() {
+  callState.role = 'callee';
+  setupWebRTC();
+  hideCallUI();
+}
+
+// Проверка: если в ссылке есть код и мы не звоним — значит входящий
+if (location.hash.length > 1 && !callState.active) {
+  callState.roomId = location.hash.substring(1);
+  callState.role = 'callee';
+  showCallUI('Входящий звонок...');
+  document.getElementById('callControls').querySelector('.accept').style.display = 'inline-block';
+}
+
+// Добавляем кнопку в чат при рендере
+setInterval(addCallButton, 1000);
+
+// ... (остальной твой код рендера и API остаётся без изменений) ...
+</script>
+</body>
+</html>
