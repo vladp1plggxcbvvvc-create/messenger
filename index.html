@@ -86,7 +86,6 @@
 <div id="root"></div>
 <script>
 "use strict";
-
 const api = async (u, o = {}) => {
   const r = await fetch(u, {
     headers: {'Content-Type':'application/json'},
@@ -216,16 +215,14 @@ async function renderApp(){
   }
   btnSmile.addEventListener('click', () => emojiPanel.classList.toggle('open'));
 
-    let mediaRec = null, chunks = [], recStream = null, recMime = '';
-
+  let mediaRec = null, chunks = [], recStream = null, recMime = '';
   function pickMime(){
-    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/ogg'];
+    const candidates = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus','audio/ogg'];
     for (const t of candidates){
       try { if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t; } catch(e){}
     }
     return '';
   }
-
   btnMic.addEventListener('click', async () => {
     if (mediaRec && mediaRec.state === 'recording'){
       try { mediaRec.requestData(); } catch(e){}
@@ -332,6 +329,7 @@ async function renderApp(){
     } catch(e){}
   }, 2000);
 }
+
 async function loadUsers(usersBox, chatHead, headTitle, headAva, inpText, msgsBox, q){
   try {
     const d = await api('/api/users?q=' + encodeURIComponent(q || ''));
@@ -440,9 +438,9 @@ async function send(inpText, msgsBox){
     await refresh(msgsBox);
   } catch(e){ alert(e.message); }
 }
-
 /* ======== ЗВОНКИ ======== */
 const call = { active:false, pc:null, localStream:null, remoteAudio:null, room:null, role:null, pollTimer:null, modal:null };
+let offerHandled = false;
 
 function canCall(){
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.RTCPeerConnection);
@@ -474,6 +472,7 @@ async function startCall(){
   if (call.active) return alert('Звонок уже идёт');
   if (!canCall()) return alert('Этот браузер не поддерживает звонки');
 
+  offerHandled = false;
   call.room = Math.random().toString(36).substring(2, 10);
   call.role = 'caller';
   call.active = true;
@@ -509,6 +508,7 @@ setInterval(async () => {
     if (d.invite){
       call.room = d.invite.room;
       call.role = 'callee';
+      offerHandled = false;
       showCallModal('Входящий звонок от ' + d.invite.fromName, ['accept', 'reject']);
     }
   } catch(e){}
@@ -516,37 +516,58 @@ setInterval(async () => {
 
 function startPolling(){
   clearInterval(call.pollTimer);
+  const seen = new Set();
   call.pollTimer = setInterval(async () => {
     if (!call.active || !call.room) return;
     try {
       const r = await fetch('/api/signal/' + call.room, { credentials:'same-origin' });
       const d = await r.json();
       if (!d.items || !d.items.length) return;
-      for (const sig of d.items) await handleSignal(sig);
+      for (const sig of d.items){
+        const key = JSON.stringify(sig).slice(0, 200);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        await handleSignal(sig);
+      }
     } catch(e){}
   }, 1200);
 }
 
 async function handleSignal(sig){
   if (!call.pc) return;
-  if (sig.type === 'offer' && call.role === 'callee'){
+
+  if (sig.type === 'offer' && call.role === 'callee' && !offerHandled){
+    offerHandled = true;
     try {
       await call.pc.setRemoteDescription({ type:'offer', sdp: sig.sdp });
       const ans = await call.pc.createAnswer();
       await call.pc.setLocalDescription(ans);
       await postSignal({ type:'answer', sdp: ans.sdp });
       updateModal('Соединение...');
-    } catch(e){}
-  } else if (sig.type === 'answer' && call.role === 'caller'){
-    try { if (call.pc.signalingState !== 'stable') await call.pc.setRemoteDescription({ type:'answer', sdp: sig.sdp }); } catch(e){}
-  } else if (sig.type === 'ice'){
-    try { await call.pc.addIceCandidate(sig.candidate); } catch(e){}
-  } else if (sig.type === 'end'){
-    endCall(true);
+    } catch(e){ console.error('offer', e); }
+    return;
   }
+
+  if (sig.type === 'answer' && call.role === 'caller'){
+    try {
+      if (call.pc.signalingState !== 'stable') {
+        await call.pc.setRemoteDescription({ type:'answer', sdp: sig.sdp });
+      }
+    } catch(e){ console.error('answer', e); }
+    return;
+  }
+
+  if (sig.type === 'ice'){
+    try { await call.pc.addIceCandidate(sig.candidate); } catch(e){}
+    return;
+  }
+
+  if (sig.type === 'end'){ endCall(true); }
 }
+
 async function postSignal(data){
   try {
+    data.from = state.me.id;
     await fetch('/api/signal', {
       method:'POST',
       headers: {'Content-Type':'application/json'},
@@ -555,17 +576,20 @@ async function postSignal(data){
     });
   } catch(e){}
 }
+
 async function acceptCall(){
   if (!canCall()){ alert('Этот браузер не поддерживает звонки'); endCall(true); return; }
   try {
     call.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch(e){ alert('Нет доступа к микрофону: ' + e.message); endCall(true); return; }
+  offerHandled = false;
   call.pc = newPc();
   call.localStream.getTracks().forEach(t => call.pc.addTrack(t, call.localStream));
   call.active = true;
   showCallModal('Соединение...', ['end']);
   startPolling();
 }
+
 async function endCall(){
   if (call.room){ try { await postSignal({ type:'end' }); } catch(e){} }
   clearInterval(call.pollTimer); call.pollTimer = null;
@@ -573,9 +597,11 @@ async function endCall(){
   if (call.localStream){ call.localStream.getTracks().forEach(t => t.stop()); call.localStream = null; }
   if (call.remoteAudio){ call.remoteAudio.pause(); call.remoteAudio = null; }
   call.active = false; call.room = null; call.role = null;
+  offerHandled = false;
   hideCallModal();
   if (location.hash.startsWith('#call-')) location.hash = '';
 }
+
 function showCallModal(text, buttons){
   hideCallModal();
   const box = el('div', {class:'modal'});
@@ -597,15 +623,18 @@ function showCallModal(text, buttons){
     controls.appendChild(b);
   }
   box.appendChild(controls);
+
   const slider = el('input', {type:'range', min:'0', max:'1', step:'0.05', value:'1'});
   slider.addEventListener('input', () => {
     if (call.remoteAudio) call.remoteAudio.volume = Number(slider.value);
   });
   box.appendChild(slider);
+
   const overlay = el('div', {class:'overlay', id:'callOverlay'}, [box]);
   document.body.appendChild(overlay);
   call.modal = overlay;
 }
+
 function updateModal(text){
   const t = document.getElementById('callTitle');
   if (t) t.textContent = text;
@@ -616,9 +645,11 @@ function updateModal(text){
     controls.appendChild(b);
   }
 }
+
 function hideCallModal(){
   if (call.modal){ call.modal.remove(); call.modal = null; }
 }
+
 function checkIncomingFromHash(){
   const h = location.hash;
   if (!h.startsWith('#call-')) return;
@@ -626,8 +657,10 @@ function checkIncomingFromHash(){
   if (!room) return;
   call.room = room;
   call.role = 'callee';
+  offerHandled = false;
   showCallModal('Входящий звонок...', ['accept', 'reject']);
 }
+
 (async function start(){
   try {
     const d = await api('/api/me');
