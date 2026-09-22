@@ -216,9 +216,22 @@ async function renderApp(){
   }
   btnSmile.addEventListener('click', () => emojiPanel.classList.toggle('open'));
 
-  let mediaRec = null, chunks = [], recStream = null;
+    let mediaRec = null, chunks = [], recStream = null, recMime = '';
+
+  function pickMime(){
+    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/ogg'];
+    for (const t of candidates){
+      try { if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t; } catch(e){}
+    }
+    return '';
+  }
+
   btnMic.addEventListener('click', async () => {
-    if (mediaRec && mediaRec.state === 'recording'){ mediaRec.stop(); return; }
+    if (mediaRec && mediaRec.state === 'recording'){
+      try { mediaRec.requestData(); } catch(e){}
+      mediaRec.stop();
+      return;
+    }
     if (!navigator.mediaDevices || !window.MediaRecorder){
       alert('Этот браузер не поддерживает запись звука');
       return;
@@ -226,13 +239,15 @@ async function renderApp(){
     try {
       recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunks = [];
-      mediaRec = new MediaRecorder(recStream);
-      mediaRec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-      mediaRec.onstop = async () => {
+      recMime = pickMime();
+      mediaRec = recMime ? new MediaRecorder(recStream, { mimeType: recMime }) : new MediaRecorder(recStream);
+      mediaRec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      mediaRec.onstop = () => {
         recStream.getTracks().forEach(t => t.stop());
         btnMic.textContent = '🎤';
         btnMic.classList.remove('rec');
-        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const type = (mediaRec && mediaRec.mimeType) || recMime || 'audio/webm';
+        const blob = new Blob(chunks, { type });
         if (blob.size < 500) return;
         const reader = new FileReader();
         reader.onload = async () => {
@@ -248,6 +263,11 @@ async function renderApp(){
         reader.readAsDataURL(blob);
       };
       mediaRec.start();
+      setTimeout(() => {
+        if (mediaRec && mediaRec.state === 'recording'){
+          try { mediaRec.requestData(); } catch(e){}
+        }
+      }, 300);
       btnMic.textContent = '⏹';
       btnMic.classList.add('rec');
     } catch(e){
