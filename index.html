@@ -558,7 +558,7 @@ async function endCall(){
 }
 function showCallModal(text, buttons){
   hideCallModal();
-  const box = el('div, {class:'modal'});
+  const box = el('div', {class:'modal'});
   box.appendChild(el('h3', {id:'callTitle', text: text}));
   const controls = el('div', {id:'callControls'});
   if (buttons.includes('accept')){
