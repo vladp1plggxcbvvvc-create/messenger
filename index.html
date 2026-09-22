@@ -175,7 +175,6 @@ function renderAuth(){
     el('h1', {text:'Messenger'}), modeEl, inpU, inpP, btnGo, btnSwap, errEl
   ]));
 }
-
 /* ======== ОСНОВНОЙ ЭКРАН ======== */
 async function renderApp(){
   clear(root);
@@ -185,6 +184,8 @@ async function renderApp(){
   const headSub = el('div', {class:'sub', text:''});
   const headCol = el('div', {class:'col'}, [headTitle, headSub]);
   const headAva = el('div');
+  const inpText = el('input', {placeholder:'Сообщение...', disabled:true, autocomplete:'off'});
+
   const btnBack = el('button', {class:'back', type:'button', text:'←', title:'Назад'});
   btnBack.addEventListener('click', () => {
     if (appEl) appEl.classList.remove('chat-open');
@@ -194,17 +195,18 @@ async function renderApp(){
     clear(headAva);
     inpText.disabled = true;
   });
+
   const btnCall = el('button', {class:'call', text:'📞', type:'button', title:'Позвонить'});
   btnCall.addEventListener('click', startCall);
+
   const headRow = el('div', {class:'row'}, [headAva, headCol]);
   const chatHead = el('div', {class:'head'}, [btnBack, headRow, btnCall]);
   const msgsBox = el('div', {class:'msgs'});
   typingLine = el('div', {class:'typing', text:''});
 
-  const inpText = el('input', {placeholder:'Сообщение...', disabled:true, autocomplete:'off'});
   const btnSend = el('button', {class:'send', type:'button', text:'➤'});
-  const btnSmile = el('button', {class:'icon', type:'button', text:'😊', title:'Эмодзи'});
-  const btnMic = el('button', {class:'icon', type:'button', text:'🎤', title:'Голосовое'});
+  const btnSmile = el('button', {class:'icon', type:'button', text:'😊'});
+  const btnMic = el('button', {class:'icon', type:'button', text:'🎤'});
 
   const emojiPanel = el('div', {class:'emoji-panel'});
   for (const e of EMOJI_LIST){
@@ -270,7 +272,6 @@ async function renderApp(){
   inpText.addEventListener('keydown', e => {
     if (e.key === 'Enter'){ e.preventDefault(); send(inpText, msgsBox); }
   });
-  let typingTimer = null;
   inpText.addEventListener('input', () => {
     if (!state.peer) return;
     const now = Date.now();
@@ -298,25 +299,19 @@ async function renderApp(){
 
   clearInterval(state.timer);
   state.timer = setInterval(async () => {
-    if (state.peer){
-      await refresh(msgsBox);
-      // typing
-      try {
-        const d = await api('/api/typing?who=' + state.peer.id);
-        typingLine.textContent = d.typing ? 'печатает…' : '';
-      } catch(e){}
-      // обновляем статус онлайн собеседника
-      try {
-        const u = await api('/api/users?q=' + encodeURIComponent(state.peer.username));
-        const found = (u.users || []).find(x => x.id === state.peer.id);
-        if (found){
-          headSub.textContent = found.online ? 'онлайн' : 'не в сети';
-        }
-      } catch(e){}
-    }
+    if (!state.peer) return;
+    await refresh(msgsBox);
+    try {
+      const d = await api('/api/typing?who=' + state.peer.id);
+      typingLine.textContent = d.typing ? 'печатает…' : '';
+    } catch(e){}
+    try {
+      const u = await api('/api/users?q=' + encodeURIComponent(state.peer.username));
+      const found = (u.users || []).find(x => x.id === state.peer.id);
+      if (found) headSub.textContent = found.online ? 'онлайн' : 'не в сети';
+    } catch(e){}
   }, 2000);
 }
-
 async function loadUsers(usersBox, chatHead, headTitle, headAva, inpText, msgsBox, q){
   try {
     const d = await api('/api/users?q=' + encodeURIComponent(q || ''));
@@ -327,4 +322,240 @@ async function loadUsers(usersBox, chatHead, headTitle, headAva, inpText, msgsBo
     }
     for (const u of d.users){
       const active = state.peer && state.peer.id === u.id;
-      const av = makeAvatar(u, '
+      const av = makeAvatar(u, 'small');
+      const dot = el('div', {class:'dot' + (u.online ? ' on' : '')});
+      const wrap = el('div', {});
+      wrap.appendChild(el('b', {text: u.username}));
+      const item = el('div', {class:'user' + (active ? ' active' : '')}, [av, wrap, dot]);
+      item.addEventListener('click', () => openChat(u, usersBox, chatHead, headTitle, headAva, inpText, msgsBox));
+      usersBox.appendChild(item);
+    }
+  } catch(e){ console.error(e); }
+}
+
+async function openChat(user, usersBox, chatHead, headTitle, headAva, inpText, msgsBox){
+  state.peer = { id: user.id, username: user.username, avatar: user.avatar };
+  headTitle.textContent = user.username;
+  clear(headAva);
+  headAva.appendChild(makeAvatar(user, 'small'));
+  inpText.disabled = false;
+  inpText.focus();
+  await refresh(msgsBox);
+  if (isMobile() && appEl) appEl.classList.add('chat-open');
+}
+
+async function refresh(msgsBox){
+  if (!state.peer) return;
+  try {
+    const d = await api('/api/messages/' + state.peer.id);
+    clear(msgsBox);
+    if (!d.messages.length){
+      msgsBox.appendChild(el('div', {class:'muted', text:'Сообщений пока нет'}));
+      return;
+    }
+    for (const m of d.messages){
+      msgsBox.appendChild(renderMessage(m));
+    }
+    msgsBox.scrollTop = msgsBox.scrollHeight;
+  } catch(e){ console.error(e); }
+}
+
+function renderMessage(m){
+  const out = m.sender === state.me.id;
+  const b = el('div', {class: 'b' + (out ? ' out' : '')});
+  if (m.kind === 'voice'){
+    const audio = el('audio', {controls:true, src: m.text});
+    b.appendChild(audio);
+  } else {
+    b.appendChild(document.createTextNode(m.text));
+  }
+  const meta = el('div', {class:'meta'});
+  meta.appendChild(document.createTextNode(fmtTime(m.created)));
+  if (out){
+    meta.appendChild(el('span', {class:'check', text: m.read_at ? '✓✓' : '✓'}));
+  }
+  b.appendChild(meta);
+  if (m.reactions && m.reactions.length){
+    const rw = el('div', {class:'reacts'});
+    for (const r of m.reactions){
+      rw.appendChild(el('span', {text: r.emoji}));
+    }
+    b.appendChild(rw);
+  }
+  b.addEventListener('contextmenu', (e) => { e.preventDefault(); showReactPopup(e.clientX, e.clientY, m, msgsBox); });
+  let touchTimer;
+  b.addEventListener('touchstart', () => { touchTimer = setTimeout(() => showReactPopup(100, 200, m, msgsBox), 600); });
+  b.addEventListener('touchend', () => clearTimeout(touchTimer));
+  return el('div', {class:'brow' + (out ? ' out' : '')}, [b]);
+}
+
+function showReactPopup(x, y, m, msgsBox){
+  document.querySelectorAll('.react-popup').forEach(n => n.remove());
+  const p = el('div', {class:'react-popup'});
+  p.style.left = Math.max(8, x - 100) + 'px';
+  p.style.top = Math.max(8, y - 50) + 'px';
+  for (const e of REACT_LIST){
+    const b = el('button', {type:'button', text:e});
+    b.addEventListener('click', async () => {
+      await api('/api/react', { method:'POST', body: JSON.stringify({ message_id: m.id, emoji: e })});
+      p.remove();
+      await refresh(msgsBox);
+    });
+    p.appendChild(b);
+  }
+  document.body.appendChild(p);
+  setTimeout(() => { document.addEventListener('click', function h(){ p.remove(); document.removeEventListener('click', h); }); }, 0);
+}
+
+async function send(inpText, msgsBox){
+  if (!state.peer) return;
+  const text = inpText.value.trim();
+  if (!text) return;
+  try {
+    await api('/api/messages', {
+      method:'POST',
+      body: JSON.stringify({ receiver: state.peer.id, text, kind: 'text' })
+    });
+    inpText.value = '';
+    await refresh(msgsBox);
+  } catch(e){ alert(e.message); }
+}
+
+/* ======== ЗВОНКИ ======== */
+const call = { active:false, pc:null, localStream:null, remoteAudio:null, room:null, role:null, pollTimer:null, modal:null };
+
+function canCall(){
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.RTCPeerConnection);
+}
+function getIceServers(){
+  return [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ];
+}
+function newPc(){
+  const pc = new RTCPeerConnection({ iceServers: getIceServers() });
+  pc.onicecandidate = (ev) => { if (ev.candidate) postSignal({ type:'ice', candidate: ev.candidate.toJSON() }); };
+  pc.ontrack = (ev) => {
+    if (!call.remoteAudio){ call.remoteAudio = new Audio(); call.remoteAudio.autoplay = true; }
+    call.remoteAudio.srcObject = ev.streams[0];
+    call.remoteAudio.play().catch(()=>{});
+  };
+  pc.oniceconnectionstatechange = () => {
+    const s = pc.iceConnectionState;
+    if (s === 'connected' || s === 'completed') updateModal('В разговоре');
+    if (s === 'disconnected' || s === 'failed' || s === 'closed') endCall(true);
+  };
+  return pc;
+}
+
+async function startCall(){
+  if (!state.peer) return alert('Сначала выберите пользователя');
+  if (call.active) return alert('Звонок уже идёт');
+  if (!canCall()) return alert('Этот браузер не поддерживает звонки');
+
+  call.room = Math.random().toString(36).substring(2, 10);
+  call.role = 'caller';
+  call.active = true;
+
+  try {
+    call.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(e){
+    alert('Нет доступа к микрофону: ' + e.message);
+    call.active = false;
+    return;
+  }
+  call.pc = newPc();
+  call.localStream.getTracks().forEach(t => call.pc.addTrack(t, call.localStream));
+  const offer = await call.pc.createOffer();
+  await call.pc.setLocalDescription(offer);
+  await postSignal({ type:'offer', sdp: offer.sdp });
+  showCallModal('Ожидание ответа...', ['end']);
+  try {
+    await api('/api/call/invite', { method:'POST', body: JSON.stringify({ to: state.peer.id, room: call.room })});
+  } catch(e){}
+  const link = location.origin + location.pathname + '#call-' + call.room;
+  try {
+    await api('/api/messages', { method:'POST', body: JSON.stringify({ receiver: state.peer.id, text: '📞 Звонок: ' + link, kind: 'text' })});
+  } catch(e){}
+  startPolling();
+}
+
+setInterval(async () => {
+  if (!state.me || call.active) return;
+  try {
+    const r = await fetch('/api/call/incoming', { credentials:'same-origin' });
+    const d = await r.json();
+    if (d.invite){
+      call.room = d.invite.room;
+      call.role = 'callee';
+      showCallModal('Входящий звонок от ' + d.invite.fromName, ['accept', 'reject']);
+    }
+  } catch(e){}
+}, 2000);
+
+function startPolling(){
+  clearInterval(call.pollTimer);
+  call.pollTimer = setInterval(async () => {
+    if (!call.active || !call.room) return;
+    try {
+      const r = await fetch('/api/signal/' + call.room, { credentials:'same-origin' });
+      const d = await r.json();
+      if (!d.items || !d.items.length) return;
+      for (const sig of d.items) await handleSignal(sig);
+    } catch(e){}
+  }, 1200);
+}
+
+async function handleSignal(sig){
+  if (!call.pc) return;
+  if (sig.type === 'offer' && call.role === 'callee'){
+    try {
+      await call.pc.setRemoteDescription({ type:'offer', sdp: sig.sdp });
+      const ans = await call.pc.createAnswer();
+      await call.pc.setLocalDescription(ans);
+      await postSignal({ type:'answer', sdp: ans.sdp });
+      updateModal('Соединение...');
+    } catch(e){}
+  } else if (sig.type === 'answer' && call.role === 'caller'){
+    try { if (call.pc.signalingState !== 'stable') await call.pc.setRemoteDescription({ type:'answer', sdp: sig.sdp }); } catch(e){}
+  } else if (sig.type === 'ice'){
+    try { await call.pc.addIceCandidate(sig.candidate); } catch(e){}
+  } else if (sig.type === 'end'){
+    endCall(true);
+  }
+}
+async function postSignal(data){
+  try {
+    await fetch('/api/signal', {
+      method:'POST',
+      headers: {'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body: JSON.stringify({ room: call.room, data })
+    });
+  } catch(e){}
+}
+async function acceptCall(){
+  if (!canCall()){ alert('Этот браузер не поддерживает звонки'); endCall(true); return; }
+  try {
+    call.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(e){ alert('Нет доступа к микрофону: ' + e.message); endCall(true); return; }
+  call.pc = newPc();
+  call.localStream.getTracks().forEach(t => call.pc.addTrack(t, call.localStream));
+  call.active = true;
+  showCallModal('Соединение...', ['end']);
+  startPolling();
+}
+async function endCall(){
+  if (call.room){ try { await postSignal({ type:'end' }); } catch(e){} }
+  clearInterval(call.pollTimer); call.pollTimer = null;
+  if (call.pc){ try { call.pc.close(); } catch(e){} call.pc = null; }
+  if (call.localStream){ call.localStream.getTracks().forEach(t => t.stop()); call.localStream = null; }
+  if (call.remoteAudio){ call.remoteAudio.pause(); call.remoteAudio = null; }
+  call.active = false; call.room = null; call.role = null;
+  hideCallModal();
+  if (location.hash.startsWith('#call-')) location.hash = '';
+}
+function showCallModal(text, buttons){
+  hideCallModal();
+  const box = el('div
