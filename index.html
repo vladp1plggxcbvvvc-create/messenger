@@ -559,3 +559,70 @@ async function endCall(){
 function showCallModal(text, buttons){
   hideCallModal();
   const box = el('div
+, {class:'modal'});
+  box.appendChild(el('h3', {id:'callTitle', text: text}));
+  const controls = el('div', {id:'callControls'});
+  if (buttons.includes('accept')){
+    const b = el('button', {class:'accept', type:'button', text:'Принять'});
+    b.addEventListener('click', acceptCall);
+    controls.appendChild(b);
+  }
+  if (buttons.includes('reject')){
+    const b = el('button', {class:'reject', type:'button', text:'Отклонить'});
+    b.addEventListener('click', () => endCall(true));
+    controls.appendChild(b);
+  }
+  if (buttons.includes('end')){
+    const b = el('button', {class:'reject', type:'button', text:'Сбросить'});
+    b.addEventListener('click', () => endCall(true));
+    controls.appendChild(b);
+  }
+  box.appendChild(controls);
+  const slider = el('input', {type:'range', min:'0', max:'1', step:'0.05', value:'1'});
+  slider.addEventListener('input', () => {
+    if (call.remoteAudio) call.remoteAudio.volume = Number(slider.value);
+  });
+  box.appendChild(slider);
+  const overlay = el('div', {class:'overlay', id:'callOverlay'}, [box]);
+  document.body.appendChild(overlay);
+  call.modal = overlay;
+}
+function updateModal(text){
+  const t = document.getElementById('callTitle');
+  if (t) t.textContent = text;
+  const controls = document.getElementById('callControls');
+  if (controls && !controls.querySelector('.reject')){
+    const b = el('button', {class:'reject', type:'button', text:'Сбросить'});
+    b.addEventListener('click', () => endCall(true));
+    controls.appendChild(b);
+  }
+}
+function hideCallModal(){
+  if (call.modal){ call.modal.remove(); call.modal = null; }
+}
+function checkIncomingFromHash(){
+  const h = location.hash;
+  if (!h.startsWith('#call-')) return;
+  const room = h.substring(6);
+  if (!room) return;
+  call.room = room;
+  call.role = 'callee';
+  showCallModal('Входящий звонок...', ['accept', 'reject']);
+}
+(async function start(){
+  try {
+    const d = await api('/api/me');
+    if (d.user){
+      state.me = { id: d.user.id, username: d.user.username, avatar: d.user.avatar || '' };
+      await renderApp();
+      checkIncomingFromHash();
+    } else {
+      renderAuth();
+    }
+  } catch(e){
+    renderAuth();
+  }
+})();
+</script>
+</body>
+</html>
