@@ -268,6 +268,8 @@ def get_typing():
         return jsonify(typing=True)
     return jsonify(typing=False)
 
+# ========== СИГНАЛИНГ ДЛЯ ЗВОНКОВ ==========
+
 @app.post("/api/signal")
 def post_signal():
     if not session.get("uid"):
@@ -288,12 +290,19 @@ def get_signal(room):
         return jsonify(error="auth"), 401
     touch_online(session["uid"])
     now = time.time()
-    for k in list(signals.keys()):
-        signals[k] = [x for x in signals[k] if now - x.get("ts", 0) < 120]
-        if not signals[k]:
-            del signals[k]
-    arr = signals.pop(room, [])
-    return jsonify(items=[x["data"] for x in arr])
+    if room in signals:
+        signals[room] = [x for x in signals[room] if now - x.get("ts", 0) < 120]
+    uid = session["uid"]
+    arr = signals.get(room, [])
+    out = []
+    for x in arr:
+        d = x.get("data") or {}
+        if d.get("from") == uid:
+            continue
+        out.append(d)
+    return jsonify(items=out)
+
+# ========== ВХОДЯЩИЕ ЗВОНКИ ==========
 
 @app.post("/api/call/invite")
 def call_invite():
@@ -335,4 +344,4 @@ init()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False) 
