@@ -557,15 +557,32 @@ async function openGroup(g){
   if (isMobile() && appEl) appEl.classList.add('chat-open');
 }
 
+  let lastListHash = '';
+
 async function refreshMessages(){
   try {
+    let list, isGroup = false;
     if (state.group){
       const d = await api('/api/groups/' + state.group.id + '/messages');
-      renderList(d.messages, true);
+      list = d.messages; isGroup = true;
     } else if (state.peer){
       const d = await api('/api/messages/' + state.peer.id);
-      renderList(d.messages, false);
+      list = d.messages;
+    } else { return; }
+
+    // строим «отпечаток» списка
+    const hash = JSON.stringify((list || []).map(m => [
+      m.id, m.text, m.kind, m.deleted, m.edited, m.read_at,
+      (m.reactions || []).map(r => r.emoji).join(''),
+      m.reply_to || 0
+    ]));
+
+    if (hash === lastListHash){
+      // ничего не менялось — не трогаем DOM, плеер продолжает играть
+      return;
     }
+    lastListHash = hash;
+    renderList(list, isGroup);
   } catch(e){ console.error(e); }
 }
 
