@@ -34,8 +34,14 @@ def init():
       text TEXT NOT NULL,
       kind TEXT DEFAULT 'text',
       created REAL DEFAULT (extract(epoch from now())),
-      read_at REAL DEFAULT 0
+      read_at REAL DEFAULT 0,
+      reply_to INTEGER DEFAULT 0,
+      deleted INTEGER DEFAULT 0,
+      edited INTEGER DEFAULT 0
     );""")
+    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to INTEGER DEFAULT 0")
+    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted INTEGER DEFAULT 0")
+    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited INTEGER DEFAULT 0")
     cur.execute("""
     CREATE TABLE IF NOT EXISTS reactions(
       id SERIAL PRIMARY KEY,
@@ -65,8 +71,14 @@ def init():
       sender INTEGER NOT NULL,
       text TEXT NOT NULL,
       kind TEXT DEFAULT 'text',
-      created REAL DEFAULT (extract(epoch from now()))
+      created REAL DEFAULT (extract(epoch from now())),
+      reply_to INTEGER DEFAULT 0,
+      deleted INTEGER DEFAULT 0,
+      edited INTEGER DEFAULT 0
     );""")
+    cur.execute("ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS reply_to INTEGER DEFAULT 0")
+    cur.execute("ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS deleted INTEGER DEFAULT 0")
+    cur.execute("ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS edited INTEGER DEFAULT 0")
     cur.execute("""
     CREATE TABLE IF NOT EXISTS blocks(
       id SERIAL PRIMARY KEY,
@@ -206,8 +218,13 @@ def messages(uid):
     if cur.fetchone():
         cur.close(); con.close()
         return jsonify(messages=[])
-    cur.execute("""SELECT id,sender,receiver,text,kind,created,read_at FROM messages
-        WHERE (sender=%s AND receiver=%s) OR (sender=%s AND receiver=%s) ORDER BY id""",
+    cur.execute("""SELECT m.id,m.sender,m.receiver,m.text,m.kind,m.created,m.read_at,m.reply_to,m.deleted,m.edited,
+            r.text AS reply_text, ru.username AS reply_name
+        FROM messages m
+        LEFT JOIN messages r ON r.id = m.reply_to
+        LEFT JOIN users ru ON ru.id = r.sender
+        WHERE (m.sender=%s AND m.receiver=%s) OR (m.sender=%s AND m.receiver=%s)
+        ORDER BY m.id""",
         (me, uid, uid, me))
     rows = cur.fetchall()
     cur.execute("UPDATE messages SET read_at=%s WHERE sender=%s AND receiver=%s AND read_at=0",
@@ -238,6 +255,8 @@ def send():
     except: return jsonify(error="Плохой получатель."), 400
     text = (d.get("text", "") or "")
     kind = (d.get("kind", "text") or "text").strip()
+    try: reply_to = int(d.get("reply_to", 0) or 0)
+    except: reply_to = 0
     if not text.strip() or not receiver:
         return jsonify(error="Пустое сообщение."), 400
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -251,12 +270,54 @@ def send():
     if cur.fetchone():
         cur.close(); con.close()
         return jsonify(error="Сообщение не может быть доставлено."), 403
-    cur.execute("INSERT INTO messages(sender,receiver,text,kind) VALUES(%s,%s,%s,%s) RETURNING id,sender,receiver,text,kind,created,read_at",
-                (me, receiver, text, kind))
+    cur.execute("INSERT INTO messages(sender,receiver,text,kind,reply_to) VALUES(%s,%s,%s,%s,%s) RETURNING id,sender,receiver,text,kind,created,read_at,reply_to,deleted,edited",
+                (me, receiver, text, kind, reply_to))
     row = cur.fetchone()
     con.commit(); cur.close(); con.close()
     m = dict(row); m["reactions"] = []
     return jsonify(message=m)
+
+@app.post("/api/messages/<int:mid>/delete")
+def delete_message(mid):
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    con = db(); cur = con.cursor()
+    cur.execute("UPDATE messages SET deleted=1 WHERE id=%s AND sender=%s", (mid, me))
+    con.commit(); cur.close(); con.close()
+    return jsonify(ok=True)
+
+@app.post("/api/messages/<int:mid>/edit")
+def edit_message(mid):
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    d = request.json or {}
+    text = (d.get("text") or "").strip()
+    if not text: return jsonify(error="Пусто"), 400
+    con = db(); cur = con.cursor()
+    cur.execute("UPDATE messages SET text=%s, edited=1 WHERE id=%s AND sender=%s", (text, mid, me))
+    con.commit(); cur.close(); con.close()
+    return jsonify(ok=True)
+
+@app.post("/api/groups/<int:gid>/messages/<int:mid>/delete")
+def group_delete(gid, mid):
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    con = db(); cur = con.cursor()
+    cur.execute("UPDATE group_messages SET deleted=1 WHERE id=%s AND sender=%s AND group_id=%s", (mid, me, gid))
+    con.commit(); cur.close(); con.close()
+    return jsonify(ok=True)
+
+@app.post("/api/groups/<int:gid>/messages/<int:mid>/edit")
+def group_edit(gid, mid):
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    d = request.json or {}
+    text = (d.get("text") or "").strip()
+    if not text: return jsonify(error="Пусто"), 400
+    con = db(); cur = con.cursor()
+    cur.execute("UPDATE group_messages SET text=%s, edited=1 WHERE id=%s AND sender=%s AND group_id=%s", (text, mid, me, gid))
+    con.commit(); cur.close(); con.close()
+    return jsonify(ok=True)
 
 @app.post("/api/react")
 def react():
@@ -307,8 +368,6 @@ def get_typing():
         return jsonify(typing=True)
     return jsonify(typing=False)
 
-# ---------- БЛОКИРОВКА ----------
-
 @app.post("/api/block")
 def block_user():
     me = session.get("uid")
@@ -347,8 +406,6 @@ def list_blocks():
     rows = cur.fetchall()
     cur.close(); con.close()
     return jsonify(blocks=[dict(r) for r in rows])
-
-# ---------- ГРУППЫ ----------
 
 @app.post("/api/groups")
 def create_group():
@@ -396,8 +453,12 @@ def group_messages(gid):
     if not cur.fetchone():
         cur.close(); con.close()
         return jsonify(error="Нет доступа"), 403
-    cur.execute("""SELECT gm.id,gm.sender,gm.text,gm.kind,gm.created,u.username AS sender_name
-        FROM group_messages gm JOIN users u ON u.id=gm.sender
+    cur.execute("""SELECT gm.id,gm.sender,gm.text,gm.kind,gm.created,gm.reply_to,gm.deleted,gm.edited,
+            u.username AS sender_name, r.text AS reply_text, ru.username AS reply_name
+        FROM group_messages gm
+        JOIN users u ON u.id=gm.sender
+        LEFT JOIN group_messages r ON r.id = gm.reply_to
+        LEFT JOIN users ru ON ru.id = r.sender
         WHERE gm.group_id=%s ORDER BY gm.id""", (gid,))
     rows = cur.fetchall()
     cur.close(); con.close()
@@ -410,6 +471,8 @@ def group_send(gid):
     d = request.json or {}
     text = (d.get("text") or "")
     kind = (d.get("kind") or "text").strip()
+    try: reply_to = int(d.get("reply_to", 0) or 0)
+    except: reply_to = 0
     if not text.strip():
         return jsonify(error="Пустое сообщение."), 400
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -417,8 +480,8 @@ def group_send(gid):
     if not cur.fetchone():
         cur.close(); con.close()
         return jsonify(error="Нет доступа"), 403
-    cur.execute("INSERT INTO group_messages(group_id,sender,text,kind) VALUES(%s,%s,%s,%s) RETURNING id,sender,text,kind,created",
-                (gid, me, text, kind))
+    cur.execute("INSERT INTO group_messages(group_id,sender,text,kind,reply_to) VALUES(%s,%s,%s,%s,%s) RETURNING id,sender,text,kind,created,reply_to,deleted,edited",
+                (gid, me, text, kind, reply_to))
     row = cur.fetchone()
     con.commit(); cur.close(); con.close()
     m = dict(row); m["sender_name"] = ""
@@ -440,8 +503,6 @@ def group_add_member(gid):
     cur.execute("INSERT INTO group_members(group_id,user_id) VALUES(%s,%s) ON CONFLICT DO NOTHING", (gid, uid))
     con.commit(); cur.close(); con.close()
     return jsonify(ok=True)
-
-# ---------- ЗВОНКИ ----------
 
 @app.post("/api/signal")
 def post_signal():
