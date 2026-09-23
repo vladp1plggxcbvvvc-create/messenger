@@ -343,12 +343,25 @@ async function renderApp(){
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
-  async function blobToWav(blob){
+    async function blobToWav(blob){
     const arrayBuf = await blob.arrayBuffer();
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const audioBuf = await ctx.decodeAudioData(arrayBuf);
-    const samples = audioBuf.getChannelData(0);
-    const wav = encodeWAV(samples, audioBuf.sampleRate);
+    // ресемплим в 16000 Hz, моно
+    const targetRate = 16000;
+    const srcSamples = audioBuf.getChannelData(0);
+    const srcRate = audioBuf.sampleRate;
+    const ratio = srcRate / targetRate;
+    const newLen = Math.floor(srcSamples.length / ratio);
+    const out = new Float32Array(newLen);
+    for (let i = 0; i < newLen; i++){
+      const idx = i * ratio;
+      const i0 = Math.floor(idx);
+      const i1 = Math.min(i0 + 1, srcSamples.length - 1);
+      const frac = idx - i0;
+      out[i] = srcSamples[i0] * (1 - frac) + srcSamples[i1] * frac;
+    }
+    const wav = encodeWAV(out, targetRate);
     try { ctx.close(); } catch(e){}
     return wav;
   }
