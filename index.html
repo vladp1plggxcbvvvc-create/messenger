@@ -576,7 +576,82 @@ function renderList(list, isGroup){
   msgsBoxRef.scrollTop = msgsBoxRef.scrollHeight;
 }
 
-function renderMessage(m, isGroup){
+function makeVoicePlayer(src){
+  const wrap = el('div', {class:'player'});
+  const btn = el('button', {class:'play', type:'button', text:'▶'});
+  const bar = el('div', {class:'bar'});
+  const fill = el('div', {class:'fill'});
+  bar.appendChild(fill);
+  const timeEl = el('div', {class:'time', text:'0:00'});
+  wrap.appendChild(btn); wrap.appendChild(bar); wrap.appendChild(timeEl);
+
+  let audioCtx = null, buffer = null, source = null, startedAt = 0, pausedAt = 0;
+  let playing = false, duration = 0, raf = null;
+
+  fetch(src).then(r => r.arrayBuffer()).then(ab => {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx.decodeAudioData(ab).then(buf => {
+      buffer = buf;
+      duration = buf.duration;
+      timeEl.textContent = fmtDur(duration);
+    }).catch(e => { timeEl.textContent = 'ошибка'; });
+  }).catch(()=>{ timeEl.textContent = 'ошибка'; });
+
+  function fmtDur(s){
+    s = Math.max(0, Math.round(s));
+    const m = Math.floor(s / 60);
+    const ss = String(s % 60).padStart(2,'0');
+    return m + ':' + ss;
+  }
+
+  function tick(){
+    if (!playing || !audioCtx || !buffer) return;
+    const cur = Math.min(audioCtx.currentTime - startedAt + pausedAt, duration);
+    fill.style.width = (cur / duration * 100) + '%';
+    timeEl.textContent = fmtDur(duration - cur);
+    if (cur >= duration){ stop(); }
+    else raf = requestAnimationFrame(tick);
+  }
+
+  function stop(){
+    playing = false;
+    btn.textContent = '▶';
+    fill.style.width = '0%';
+    pausedAt = 0;
+    if (source){ try { source.stop(); } catch(e){} source = null; }
+    if (raf){ cancelAnimationFrame(raf); raf = null; }
+    timeEl.textContent = fmtDur(duration);
+  }
+
+  btn.addEventListener('click', async () => {
+    if (!buffer){
+      await new Promise(r => setTimeout(r, 150));
+      if (!buffer){ timeEl.textContent = 'загрузка…'; return; }
+    }
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    if (playing){
+      pausedAt += audioCtx.currentTime - startedAt;
+      try { source.stop(); } catch(e){}
+      playing = false;
+      btn.textContent = '▶';
+      if (raf){ cancelAnimationFrame(raf); raf = null; }
+      return;
+    }
+
+    source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.onended = () => { if (playing) stop(); };
+    source.start(0, pausedAt);
+    startedAt = audioCtx.currentTime;
+    playing = true;
+    btn.textContent = '⏸';
+    tick();
+  });
+
+  return wrap;
+}function renderMessage(m, isGroup){
   const out = m.sender === state.me.id;
   const b = el('div', {class: 'b' + (out ? ' out' : '')});
   if (isGroup && !out && m.sender_name) b.appendChild(el('div', {class:'sender', text: m.sender_name}));
