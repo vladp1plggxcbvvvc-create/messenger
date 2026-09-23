@@ -590,8 +590,8 @@ function renderMessage(m, isGroup){
 
   if (m.deleted){
     b.appendChild(el('span', {class:'deleted', text:'сообщение удалено'}));
-  } else if (m.kind === 'voice'){
-    b.appendChild(el('audio', {controls:true, src: m.text}));
+    } else if (m.kind === 'voice'){
+    b.appendChild(makeVoicePlayer(m.text));
   } else if (m.kind === 'image'){
     b.appendChild(el('img', {class:'att', src: m.text}));
   } else {
