@@ -527,7 +527,7 @@ async function loadGroups(q){
   } catch(e){ console.error(e); }
 }
 
-async function openChat(user){
+async function openChat(user){  lastListHash = '';
   state.peer = { id: user.id, username: user.username, avatar: user.avatar };
   state.group = null; state.replyTo = null; state.editId = null;
   chatHeadRef.querySelector('.name').textContent = user.username;
