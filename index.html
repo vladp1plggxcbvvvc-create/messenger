@@ -543,7 +543,7 @@ async function openChat(user){  lastListHash = '';
 }
 
 async function openGroup(g){
-  state.group = g;
+  state.group = g;lastListHash = '';
   state.peer = null; state.replyTo = null; state.editId = null;
   chatHeadRef.querySelector('.name').textContent = g.name;
   chatHeadRef.querySelector('.sub').textContent = g.members ? (g.members.length + ' участн.') : '';
