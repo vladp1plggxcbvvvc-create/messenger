@@ -1,90 +1,110 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Messenger</title>
 <style>
+  :root{
+    --bg:#eef1f5; --card:#fff; --text:#18202a; --muted:#7b8490;
+    --border:#e5e8ec; --border2:#dce1e7; --msg:#e3e6ea; --msg-out:#c9ccd1;
+    --msgs-bg:#f7f9fb; --input:#fff; --hover:#edf3ff; --me-bar:#f4f7fc;
+    --primary:#3678e8; --green:#34a853; --red:#ea4335;
+  }
+  html[data-theme="dark"]{
+    --bg:#0e1621; --card:#17212b; --text:#e9eef5; --muted:#8fa3b8;
+    --border:#243447; --border2:#2b3d52; --msg:#1f2c3a; --msg-out:#2b5278;
+    --msgs-bg:#0e1621; --input:#1f2c3a; --hover:#1e2c3c; --me-bar:#1e2c3c;
+    --primary:#5288c1; --green:#34a853; --red:#ea4335;
+  }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
-  body{margin:0;font:15px system-ui;background:#eef1f5;color:#18202a;overscroll-behavior:none}
+  body{margin:0;font:15px system-ui;background:var(--bg);color:var(--text);overscroll-behavior:none}
   button{font:inherit;cursor:pointer}
   input{font:inherit}
-  .card{max-width:420px;margin:10vh auto;background:#fff;padding:28px;border-radius:18px;box-shadow:0 10px 40px #0001}
-  .field{width:100%;padding:12px;border-radius:10px;border:1px solid #dce1e7;margin:6px 0}
-  .primary{width:100%;padding:12px;border-radius:10px;border:0;background:#3678e8;color:#fff;margin:6px 0}
-  .link{border:0;background:none;color:#3678e8;padding:0;margin:0}
+  .card{max-width:420px;margin:10vh auto;background:var(--card);padding:28px;border-radius:18px;box-shadow:0 10px 40px #0001}
+  .field{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border2);margin:6px 0;background:var(--input);color:var(--text)}
+  .primary{width:100%;padding:12px;border-radius:10px;border:0;background:var(--primary);color:#fff;margin:6px 0}
+  .link{border:0;background:none;color:var(--primary);padding:0;margin:0}
   .error{color:#c33;min-height:20px;margin-top:8px}
-  .app{height:100dvh;display:flex;max-width:1100px;margin:auto;background:#fff}
-  .side{width:320px;border-right:1px solid #e5e8ec;padding:18px;display:flex;flex-direction:column;min-width:0;background:#fff}
+  .app{height:100dvh;display:flex;max-width:1100px;margin:auto;background:var(--card)}
+  .side{width:320px;border-right:1px solid var(--border);padding:18px;display:flex;flex-direction:column;min-width:0;background:var(--card)}
   .side h2{margin:0;font-size:20px}
   .top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
   .tabs{display:flex;gap:6px;margin-bottom:10px}
-  .tabs button{flex:1;padding:8px;border:0;background:#eef1f5;border-radius:10px;font-size:14px;font-weight:600;color:#7b8490}
-  .tabs button.active{background:#3678e8;color:#fff}
+  .tabs button{flex:1;padding:8px;border:0;background:var(--me-bar);border-radius:10px;font-size:14px;font-weight:600;color:var(--muted)}
+  .tabs button.active{background:var(--primary);color:#fff}
   .users{flex:1;overflow:auto;margin-top:6px;min-height:0;-webkit-overflow-scrolling:touch}
-  .user{padding:10px;border-radius:10px;cursor:pointer;user-select:none;display:flex;align-items:center;gap:10px;position:relative}
-  .user:active{background:#edf3ff}
-  .user.active{background:#edf3ff}
+  .user{padding:10px;border-radius:10px;cursor:pointer;user-select:none;display:flex;align-items:center;gap:10px;position:relative;color:var(--text)}
+  .user:active{background:var(--hover)}
+  .user.active{background:var(--hover)}
   .user b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .user .dot{position:absolute;left:33px;bottom:7px;width:11px;height:11px;border-radius:50%;background:#b8c0c8;border:2px solid #fff}
+  .user .dot{position:absolute;left:33px;bottom:7px;width:11px;height:11px;border-radius:50%;background:#b8c0c8;border:2px solid var(--card)}
   .user .dot.on{background:#34c759}
-  .user .g-icon{width:32px;height:32px;border-radius:50%;background:#e6d5ff;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto}
-  .avatar{width:36px;height:36px;border-radius:50%;background:#dbe4f0;display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto;overflow:hidden;background-size:cover;background-position:center}
+  .user .g-icon{width:32px;height:32px;border-radius:50%;background:#6a5bff33;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto}
+  .avatar{width:36px;height:36px;border-radius:50%;background:var(--border2);display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto;overflow:hidden;background-size:cover;background-position:center}
   .avatar.small{width:32px;height:32px;font-size:18px}
-  .me-bar{display:flex;align-items:center;gap:10px;padding:10px;background:#f4f7fc;border-radius:12px;margin-bottom:10px}
+  .me-bar{display:flex;align-items:center;gap:10px;padding:10px;background:var(--me-bar);border-radius:12px;margin-bottom:10px}
   .me-bar .name{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .me-bar .edit{font-size:13px}
-  .chat{flex:1;display:flex;flex-direction:column;min-width:0;background:#fff}
-  .head{padding:12px 14px;border-bottom:1px solid #e5e8ec;font-weight:700;display:flex;align-items:center;gap:8px;min-height:56px}
+  .chat{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--card)}
+  .head{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:700;display:flex;align-items:center;gap:8px;min-height:56px}
   .head .row{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
   .head .col{display:flex;flex-direction:column;min-width:0}
   .head .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .head .sub{font-size:12px;color:#7b8490;font-weight:400}
-  .head button.back{display:none;border:0;background:none;font-size:22px;padding:0 6px 0 0;cursor:pointer;line-height:1}
-  .head button.call{border:0;background:#34a853;color:#fff;border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;flex:0 0 auto}
-  .msgs{flex:1;overflow:auto;padding:16px;background:#f7f9fb;min-height:0;-webkit-overflow-scrolling:touch}
+  .head .sub{font-size:12px;color:var(--muted);font-weight:400}
+  .head button.back{display:none;border:0;background:none;font-size:22px;padding:0 6px 0 0;cursor:pointer;line-height:1;color:var(--text)}
+  .head button.call{border:0;background:var(--green);color:#fff;border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;flex:0 0 auto}
+  .msgs{flex:1;overflow:auto;padding:16px;background:var(--msgs-bg);min-height:0;-webkit-overflow-scrolling:touch}
   .brow{display:flex;margin:6px 0}
   .brow.out{justify-content:flex-end}
-  .b{max-width:80%;padding:8px 12px;border-radius:15px;background:#e3e6ea;word-wrap:break-word;white-space:pre-wrap;font-size:15px;line-height:1.35;position:relative;cursor:pointer}
-  .b.out{background:#c9ccd1}
-  .b .sender{font-size:12px;color:#4a90e2;font-weight:600;margin-bottom:3px}
-  .b .meta{font-size:11px;color:#7b8490;margin-top:3px;display:flex;gap:4px;align-items:center;justify-content:flex-end}
-  .b .meta .check{color:#4a90e2}
+  .b{max-width:80%;padding:8px 12px;border-radius:15px;background:var(--msg);color:var(--text);word-wrap:break-word;white-space:pre-wrap;font-size:15px;line-height:1.35;position:relative;cursor:pointer}
+  .b.out{background:var(--msg-out)}
+  .b .sender{font-size:12px;color:var(--primary);font-weight:600;margin-bottom:3px}
+  .b .reply{font-size:13px;color:var(--muted);border-left:3px solid var(--primary);padding-left:6px;margin-bottom:4px;white-space:normal}
+  .b .reply b{color:var(--primary);display:block;font-size:12px}
+  .b .deleted{font-style:italic;color:var(--muted);font-size:14px}
+  .b .edited{font-size:11px;color:var(--muted);margin-left:4px}
+  .b .meta{font-size:11px;color:var(--muted);margin-top:3px;display:flex;gap:4px;align-items:center;justify-content:flex-end}
+  .b .meta .check{color:#5aa9ff}
   .b audio{max-width:100%;margin-top:2px;display:block}
+  .b img.att{max-width:100%;border-radius:10px;margin-top:2px;display:block}
   .b .reacts{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
-  .b .reacts span{background:#fff;border:1px solid #e5e8ec;border-radius:10px;padding:1px 6px;font-size:12px}
-  .compose-wrap{border-top:1px solid #e5e8ec;background:#fff}
+  .b .reacts span{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1px 6px;font-size:12px}
+  .compose-wrap{border-top:1px solid var(--border);background:var(--card)}
+  .reply-preview{padding:8px 12px;background:var(--me-bar);border-left:3px solid var(--primary);display:flex;justify-content:space-between;align-items:center;font-size:13px}
+  .reply-preview .x{border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px}
   .compose{display:flex;padding:10px;gap:8px;align-items:center;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
-  .compose input{flex:1;padding:12px 14px;border:1px solid #ddd;border-radius:20px;min-width:0;font-size:16px}
-  .compose button.icon{width:42px;height:42px;background:#eef1f5;color:#18202a;border:0;border-radius:50%;font-size:18px;flex:0 0 auto}
-  .compose button.send{width:46px;height:46px;background:#3678e8;color:#fff;border:0;border-radius:50%;font-size:18px;flex:0 0 auto}
-  .compose button.rec{background:#ea4335;color:#fff}
-  .emoji-panel{display:none;padding:8px 10px;background:#fff;border-top:1px solid #eee;flex-wrap:wrap;gap:4px;max-height:180px;overflow:auto}
+  .compose input{flex:1;padding:12px 14px;border:1px solid var(--border2);border-radius:20px;min-width:0;font-size:16px;background:var(--input);color:var(--text)}
+  .compose button.icon{width:42px;height:42px;background:var(--me-bar);color:var(--text);border:0;border-radius:50%;font-size:18px;flex:0 0 auto}
+  .compose button.send{width:46px;height:46px;background:var(--primary);color:#fff;border:0;border-radius:50%;font-size:18px;flex:0 0 auto}
+  .compose button.rec{background:var(--red);color:#fff}
+  .emoji-panel{display:none;padding:8px 10px;background:var(--card);border-top:1px solid var(--border);flex-wrap:wrap;gap:4px;max-height:180px;overflow:auto}
   .emoji-panel.open{display:flex}
-  .emoji-panel button{background:#f4f6f9;border:0;border-radius:8px;font-size:22px;padding:6px;cursor:pointer;line-height:1}
-  .emoji-panel button:hover{background:#e6eaf0}
-  .typing{font-size:12px;color:#7b8490;padding:0 16px 6px;height:18px}
-  .muted{color:#7b8490;padding:10px}
+  .emoji-panel button{background:var(--me-bar);border:0;border-radius:8px;font-size:22px;padding:6px;cursor:pointer;line-height:1}
+  .typing{font-size:12px;color:var(--muted);padding:0 16px 6px;height:18px}
+  .muted{color:var(--muted);padding:10px}
   .overlay{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
-  .modal{background:#fff;border-radius:16px;padding:22px;max-width:440px;width:100%;text-align:center;max-height:88vh;overflow:auto}
+  .modal{background:var(--card);color:var(--text);border-radius:16px;padding:22px;max-width:440px;width:100%;text-align:center;max-height:88vh;overflow:auto}
   .modal h3{margin:0 0 12px;font-size:18px}
   .modal button{padding:10px 20px;margin:6px;border-radius:10px;border:0;cursor:pointer;font-size:15px}
-  .modal .accept{background:#34a853;color:#fff}
-  .modal .reject{background:#ea4335;color:#fff}
+  .modal .accept{background:var(--green);color:#fff}
+  .modal .reject{background:var(--red);color:#fff}
   .modal input[type=range]{width:100%;margin-top:12px}
-  .modal input[type=text],.modal input[type=file]{width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;margin:6px 0;font:inherit}
+  .modal input[type=text],.modal input[type=file]{width:100%;padding:10px;border:1px solid var(--border2);border-radius:10px;margin:6px 0;font:inherit;background:var(--input);color:var(--text)}
   .modal .row-btns{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .react-popup{position:fixed;background:#fff;border:1px solid #e5e8ec;border-radius:14px;padding:4px 6px;display:flex;gap:2px;box-shadow:0 6px 20px #0002;z-index:1100}
+  .react-popup{position:fixed;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:4px 6px;display:flex;gap:2px;box-shadow:0 6px 20px #0004;z-index:1100}
   .react-popup button{background:none;border:0;font-size:22px;padding:4px 6px;cursor:pointer;border-radius:8px}
-  .react-popup button:hover{background:#f0f3f7}
-  .member-list{max-height:200px;overflow:auto;text-align:left;border:1px solid #e5e8ec;border-radius:10px;padding:6px;margin:8px 0}
+  .ctx-menu{position:fixed;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:4px;box-shadow:0 6px 20px #0004;z-index:1200;min-width:140px}
+  .ctx-menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 12px;border-radius:8px;font-size:14px;cursor:pointer;color:var(--text)}
+  .ctx-menu button:hover{background:var(--hover)}
+  .member-list{max-height:200px;overflow:auto;text-align:left;border:1px solid var(--border);border-radius:10px;padding:6px;margin:8px 0}
   .member-list label{display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;border-radius:8px}
-  .member-list label:hover{background:#f4f7fc}
+  .member-list label:hover{background:var(--hover)}
   @media (max-width: 700px){
     .app{max-width:none;position:relative;overflow:hidden}
     .side{width:100%;border-right:0;padding:14px;padding-top:calc(14px + env(safe-area-inset-top))}
-    .chat{position:absolute;inset:0;transform:translateX(100%);transition:transform .22s ease;z-index:5;background:#fff}
+    .chat{position:absolute;inset:0;transform:translateX(100%);transition:transform .22s ease;z-index:5;background:var(--card)}
     .app.chat-open .chat{transform:translateX(0)}
     .head button.back{display:block}
     .b{max-width:85%}
@@ -108,7 +128,7 @@ const api = async (u, o = {}) => {
   return d;
 };
 
-const state = { me: null, peer: null, group: null, tab: 'users', timer: null, typingSent: 0 };
+const state = { me: null, peer: null, group: null, tab: 'users', timer: null, typingSent: 0, replyTo: null, editId: null };
 const root = document.getElementById('root');
 let appEl = null;
 let typingLine = null;
@@ -153,11 +173,26 @@ function fmtTime(ts){
   return h + ':' + m;
 }
 
+/* ======== ТЁМНАЯ ТЕМА ======== */
+function applyTheme(){
+  const t = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = cur === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('theme', next);
+  document.documentElement.setAttribute('data-theme', next);
+}
+applyTheme();
+
 /* ======== АВТОРИЗАЦИЯ ======== */
 function renderAuth(){
   clear(root);
   appEl = null;
   let reg = true;
+  const themeBtn = el('button', {class:'link', type:'button', text:'🌓', style:{float:'right', fontSize:'20px'}});
+  themeBtn.addEventListener('click', () => { toggleTheme(); });
   const modeEl = el('p', {class:'muted', style:{padding:'0'}, text:'Регистрация'});
   const inpU = el('input', {class:'field', placeholder:'Имя пользователя', autocomplete:'username'});
   const inpP = el('input', {class:'field', type:'password', placeholder:'Пароль', autocomplete:'current-password'});
@@ -186,6 +221,7 @@ function renderAuth(){
   inpU.addEventListener('keydown', e => { if (e.key === 'Enter') inpP.focus(); });
   inpP.addEventListener('keydown', e => { if (e.key === 'Enter') btnGo.click(); });
   root.appendChild(el('div', {class:'card'}, [
+    themeBtn,
     el('h1', {text:'Messenger'}), modeEl, inpU, inpP, btnGo, btnSwap, errEl
   ]));
 }
@@ -214,11 +250,12 @@ async function renderApp(){
   const btnBack = el('button', {class:'back', type:'button', text:'←', title:'Назад'});
   btnBack.addEventListener('click', () => {
     if (appEl) appEl.classList.remove('chat-open');
-    state.peer = null; state.group = null;
+    state.peer = null; state.group = null; state.replyTo = null; state.editId = null;
     headTitle.textContent = 'Выберите чат';
     headSub.textContent = '';
     clear(headAva);
     inpText.disabled = true;
+    refreshReplyPreview();
   });
 
   const btnBlock = el('button', {class:'call', text:'🚫', type:'button', title:'Заблокировать'});
@@ -228,16 +265,41 @@ async function renderApp(){
   const btnCall = el('button', {class:'call', text:'📞', type:'button', title:'Позвонить'});
   btnCall.addEventListener('click', startCall);
 
+  const btnTheme = el('button', {class:'call', text:'🌓', type:'button', title:'Тема'});
+  btnTheme.style.background = '#5a5a6a';
+  btnTheme.addEventListener('click', toggleTheme);
+
   const headRow = el('div', {class:'row'}, [headAva, headCol]);
-  const chatHead = el('div', {class:'head'}, [btnBack, headRow, btnBlock, btnCall]);
+  const chatHead = el('div', {class:'head'}, [btnBack, headRow, btnTheme, btnBlock, btnCall]);
   chatHeadRef = chatHead;
   const msgsBox = el('div', {class:'msgs'});
   msgsBoxRef = msgsBox;
   typingLine = el('div', {class:'typing', text:''});
 
+  const replyPreview = el('div', {class:'reply-preview'});
+  replyPreview.style.display = 'none';
+  const replyText = el('div', {class:'reply-text', style:{flex:'1', minWidth:'0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}});
+  const replyX = el('button', {class:'x', type:'button', text:'×'});
+  replyX.addEventListener('click', () => { state.replyTo = null; state.editId = null; refreshReplyPreview(); });
+  replyPreview.appendChild(replyText);
+  replyPreview.appendChild(replyX);
+
   const btnSend = el('button', {class:'send', type:'button', text:'➤'});
   const btnSmile = el('button', {class:'icon', type:'button', text:'😊'});
   const btnMic = el('button', {class:'icon', type:'button', text:'🎤'});
+
+  function refreshReplyPreview(){
+    if (state.replyTo){
+      replyPreview.style.display = 'flex';
+      replyText.textContent = 'Ответ: ' + (state.replyTo.sender_name || state.replyTo.username || '') + ' — ' + state.replyTo.text.slice(0, 60);
+    } else if (state.editId){
+      replyPreview.style.display = 'flex';
+      replyText.textContent = 'Редактирование сообщения';
+    } else {
+      replyPreview.style.display = 'none';
+    }
+  }
+  window.__refreshReplyPreview = refreshReplyPreview;
 
   const emojiPanel = el('div', {class:'emoji-panel'});
   for (const e of EMOJI_LIST){
@@ -248,21 +310,31 @@ async function renderApp(){
   btnSmile.addEventListener('click', () => emojiPanel.classList.toggle('open'));
 
   let mediaRec = null, chunks = [], recStream = null, recMime = '';
+  let recTimer = null, recSeconds = 0;
   function pickMime(){
     const c = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus','audio/ogg'];
     for (const t of c){ try { if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t; } catch(e){} }
     return '';
   }
   btnMic.addEventListener('click', async () => {
-    if (mediaRec && mediaRec.state === 'recording'){ try{mediaRec.requestData();}catch(e){} mediaRec.stop(); return; }
+    if (mediaRec && mediaRec.state === 'recording'){
+      try { mediaRec.requestData(); } catch(e){}
+      clearInterval(recTimer);
+      btnMic.textContent = '🎤';
+      btnMic.classList.remove('rec');
+      mediaRec.stop();
+      return;
+    }
     if (!navigator.mediaDevices || !window.MediaRecorder){ alert('Этот браузер не поддерживает запись звука'); return; }
     try {
       recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      chunks = []; recMime = pickMime();
+      chunks = [];
+      recMime = pickMime();
       mediaRec = recMime ? new MediaRecorder(recStream, { mimeType: recMime }) : new MediaRecorder(recStream);
       mediaRec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
       mediaRec.onstop = () => {
         recStream.getTracks().forEach(t => t.stop());
+        clearInterval(recTimer);
         btnMic.textContent = '🎤';
         btnMic.classList.remove('rec');
         const type = (mediaRec && mediaRec.mimeType) || recMime || 'audio/webm';
@@ -281,9 +353,9 @@ async function renderApp(){
         };
         reader.readAsDataURL(blob);
       };
-      mediaRec.start();
-      setTimeout(() => { if (mediaRec && mediaRec.state === 'recording'){ try{mediaRec.requestData();}catch(e){} } }, 300);
-      btnMic.textContent = '⏹';
+      mediaRec.start(1000);
+      recSeconds = 0;
+      recTimer = setInterval(() => { recSeconds++; btnMic.textContent = '⏹ ' + recSeconds + 'с'; }, 1000);
       btnMic.classList.add('rec');
     } catch(e){ alert('Нет доступа к микрофону: ' + e.message); }
   });
@@ -324,6 +396,7 @@ async function renderApp(){
     el('main', {class:'chat'}, [
       chatHead, msgsBox, typingLine,
       el('div', {class:'compose-wrap'}, [
+        replyPreview,
         emojiPanel,
         el('div', {class:'compose'}, [btnSmile, inpText, btnMic, btnSend])
       ])
@@ -378,7 +451,7 @@ async function loadGroups(q){
     const d = await api('/api/groups');
     clear(groupsBoxRef);
     const list = (d.groups || []).filter(g => !q || g.name.toLowerCase().includes(q.toLowerCase()));
-    const btnNew = el('div', {class:'user', style:{background:'#eef7ff'}}, [
+    const btnNew = el('div', {class:'user', style:{background:'var(--hover)'}}, [
       el('div', {class:'g-icon', text:'➕'}),
       el('b', {text:'Создать группу'})
     ]);
@@ -398,7 +471,7 @@ async function loadGroups(q){
 
 async function openChat(user){
   state.peer = { id: user.id, username: user.username, avatar: user.avatar };
-  state.group = null;
+  state.group = null; state.replyTo = null; state.editId = null;
   chatHeadRef.querySelector('.name').textContent = user.username;
   chatHeadRef.querySelector('.sub').textContent = '';
   const headAva = chatHeadRef.querySelector('.row').firstChild;
@@ -406,13 +479,14 @@ async function openChat(user){
   headAva.appendChild(makeAvatar(user, 'small'));
   const inp = document.querySelector('.compose input');
   inp.disabled = false; inp.focus();
+  if (window.__refreshReplyPreview) window.__refreshReplyPreview();
   await refreshMessages();
   if (isMobile() && appEl) appEl.classList.add('chat-open');
 }
 
 async function openGroup(g){
   state.group = g;
-  state.peer = null;
+  state.peer = null; state.replyTo = null; state.editId = null;
   chatHeadRef.querySelector('.name').textContent = g.name;
   chatHeadRef.querySelector('.sub').textContent = g.members ? (g.members.length + ' участн.') : '';
   const headAva = chatHeadRef.querySelector('.row').firstChild;
@@ -420,6 +494,7 @@ async function openGroup(g){
   headAva.appendChild(el('div', {class:'g-icon', text:'👥'}));
   const inp = document.querySelector('.compose input');
   inp.disabled = false; inp.focus();
+  if (window.__refreshReplyPreview) window.__refreshReplyPreview();
   await refreshMessages();
   if (isMobile() && appEl) appEl.classList.add('chat-open');
 }
@@ -447,27 +522,93 @@ function renderMessage(m, isGroup){
   const out = m.sender === state.me.id;
   const b = el('div', {class: 'b' + (out ? ' out' : '')});
   if (isGroup && !out && m.sender_name) b.appendChild(el('div', {class:'sender', text: m.sender_name}));
-  if (m.kind === 'voice'){
+
+  if (m.reply_to && m.reply_text){
+    const rq = el('div', {class:'reply'});
+    rq.appendChild(el('b', {text: m.reply_name || ''}));
+    rq.appendChild(document.createTextNode(m.reply_text.slice(0, 80)));
+    b.appendChild(rq);
+  }
+
+  if (m.deleted){
+    b.appendChild(el('span', {class:'deleted', text:'сообщение удалено'}));
+  } else if (m.kind === 'voice'){
     b.appendChild(el('audio', {controls:true, src: m.text}));
+  } else if (m.kind === 'image'){
+    b.appendChild(el('img', {class:'att', src: m.text}));
   } else {
     b.appendChild(document.createTextNode(m.text));
   }
+
   const meta = el('div', {class:'meta'});
   meta.appendChild(document.createTextNode(fmtTime(m.created)));
+  if (m.edited) meta.appendChild(el('span', {class:'edited', text:'изм.'}));
   if (out && !isGroup) meta.appendChild(el('span', {class:'check', text: m.read_at ? '✓✓' : '✓'}));
   b.appendChild(meta);
+
   if (m.reactions && m.reactions.length){
     const rw = el('div', {class:'reacts'});
     for (const r of m.reactions) rw.appendChild(el('span', {text: r.emoji}));
     b.appendChild(rw);
   }
-  if (!isGroup){
-    b.addEventListener('contextmenu', (e) => { e.preventDefault(); showReactPopup(e.clientX, e.clientY, m); });
-    let t;
-    b.addEventListener('touchstart', () => { t = setTimeout(() => showReactPopup(100, 200, m), 600); });
-    b.addEventListener('touchend', () => clearTimeout(t));
-  }
+
+  b.addEventListener('contextmenu', (e) => { e.preventDefault(); showCtxMenu(e.clientX, e.clientY, m, out, isGroup); });
+  let touchT;
+  b.addEventListener('touchstart', () => { touchT = setTimeout(() => showCtxMenu(100, 200, m, out, isGroup), 600); });
+  b.addEventListener('touchend', () => clearTimeout(touchT));
+
   return el('div', {class:'brow' + (out ? ' out' : '')}, [b]);
+}
+
+function showCtxMenu(x, y, m, out, isGroup){
+  document.querySelectorAll('.ctx-menu').forEach(n => n.remove());
+  const menu = el('div', {class:'ctx-menu'});
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - 160)) + 'px';
+  menu.style.top = Math.max(8, y) + 'px';
+
+  const btnReply = el('button', {type:'button', text:'↩ Ответить'});
+  btnReply.addEventListener('click', () => {
+    state.replyTo = { id: m.id, text: m.text, sender_name: m.sender_name || (out ? state.me.username : (state.peer ? state.peer.username : '')) };
+    state.editId = null;
+    if (window.__refreshReplyPreview) window.__refreshReplyPreview();
+    menu.remove();
+    const inp = document.querySelector('.compose input');
+    if (inp) inp.focus();
+  });
+  menu.appendChild(btnReply);
+
+  const btnReact = el('button', {type:'button', text:'👍 Реакция'});
+  btnReact.addEventListener('click', () => { menu.remove(); showReactPopup(x, y, m); });
+  menu.appendChild(btnReact);
+
+  if (out && !m.deleted){
+    const btnEdit = el('button', {type:'button', text:'✏ Изменить'});
+    btnEdit.addEventListener('click', () => {
+      state.editId = m.id; state.replyTo = null;
+      if (window.__refreshReplyPreview) window.__refreshReplyPreview();
+      const inp = document.querySelector('.compose input');
+      if (inp){ inp.value = m.text; inp.focus(); }
+      menu.remove();
+    });
+    menu.appendChild(btnEdit);
+
+    const btnDel = el('button', {type:'button', text:'🗑 Удалить', style:{color:'#ea4335'}});
+    btnDel.addEventListener('click', async () => {
+      try {
+        if (isGroup){
+          await api('/api/groups/' + state.group.id + '/messages/' + m.id + '/delete', { method:'POST' });
+        } else {
+          await api('/api/messages/' + m.id + '/delete', { method:'POST' });
+        }
+        menu.remove();
+        await refreshMessages();
+      } catch(e){ alert(e.message); }
+    });
+    menu.appendChild(btnDel);
+  }
+
+  document.body.appendChild(menu);
+  setTimeout(() => { document.addEventListener('click', function h(){ menu.remove(); document.removeEventListener('click', h); }); }, 0);
 }
 
 function showReactPopup(x, y, m){
@@ -492,12 +633,29 @@ async function sendMessage(inpText){
   const text = inpText.value.trim();
   if (!text) return;
   try {
+    if (state.editId){
+      if (state.group){
+        await api('/api/groups/' + state.group.id + '/messages/' + state.editId + '/edit', { method:'POST', body: JSON.stringify({ text })});
+      } else {
+        await api('/api/messages/' + state.editId + '/edit', { method:'POST', body: JSON.stringify({ text })});
+      }
+      state.editId = null;
+      inpText.value = '';
+      if (window.__refreshReplyPreview) window.__refreshReplyPreview();
+      await refreshMessages();
+      return;
+    }
+    const payload = { text, kind: 'text' };
+    if (state.replyTo) payload.reply_to = state.replyTo.id;
     if (state.group){
-      await api('/api/groups/' + state.group.id + '/messages', { method:'POST', body: JSON.stringify({ text, kind: 'text' }) });
+      await api('/api/groups/' + state.group.id + '/messages', { method:'POST', body: JSON.stringify(payload) });
     } else if (state.peer){
-      await api('/api/messages', { method:'POST', body: JSON.stringify({ receiver: state.peer.id, text, kind: 'text' }) });
+      payload.receiver = state.peer.id;
+      await api('/api/messages', { method:'POST', body: JSON.stringify(payload) });
     } else { return; }
     inpText.value = '';
+    state.replyTo = null;
+    if (window.__refreshReplyPreview) window.__refreshReplyPreview();
     await refreshMessages();
   } catch(e){ alert(e.message); }
 }
@@ -520,7 +678,7 @@ async function blockCurrentPeer(){
     if (window.__switchTab) window.__switchTab('users');
   } catch(e){ alert(e.message); }
 }
-/* ======== ПРОФИЛЬ + ЗАБЛОКИРОВАННЫЕ ======== */
+/* ======== ПРОФИЛЬ ======== */
 function openProfileModal(){
   const overlay = el('div', {class:'overlay'});
   const close = () => overlay.remove();
@@ -543,7 +701,7 @@ function openProfileModal(){
 
   const emojiGrid = el('div', {style:{display:'grid', gridTemplateColumns:'repeat(8, 1fr)', gap:'6px', marginTop:'12px'}});
   for (const e of EMOJI_LIST.slice(0, 32)){
-    const b = el('button', {type:'button', text:e, style:{fontSize:'22px', padding:'6px', borderRadius:'8px', border:'1px solid #e5e8ec', background:'#fff'}});
+    const b = el('button', {type:'button', text:e, style:{fontSize:'22px', padding:'6px', borderRadius:'8px', border:'1px solid var(--border)', background:'var(--card)', color:'var(--text)'}});
     b.addEventListener('click', async () => {
       await api('/api/avatar', { method:'POST', body: JSON.stringify({ avatar: e })});
       state.me.avatar = e; close(); renderApp();
@@ -584,7 +742,7 @@ function openProfileModal(){
         makeAvatar(b, 'small'),
         el('b', {text: b.username})
       ]);
-      const btn = el('button', {type:'button', text:'Разблокировать', style:{marginLeft:'auto', padding:'6px 10px', borderRadius:'8px', border:0, background:'#3678e8', color:'#fff', fontSize:'13px', cursor:'pointer'}});
+      const btn = el('button', {type:'button', text:'Разблокировать', style:{marginLeft:'auto', padding:'6px 10px', borderRadius:'8px', border:0, background:'var(--primary)', color:'#fff', fontSize:'13px', cursor:'pointer'}});
       btn.addEventListener('click', async () => {
         try {
           await api('/api/unblock', { method:'POST', body: JSON.stringify({ user_id: b.id })});
@@ -607,7 +765,11 @@ function openProfileModal(){
     emojiGrid,
     el('p', {class:'muted', style:{padding:'0', margin:'14px 0 0'}, text:'Или картинка с устройства:'}),
     btnFile, fileInput,
-    el('div', {class:'row-btns'}, [ btnClear, el('button', {type:'button', text:'Закрыть', on:{click: close}}) ]),
+    el('div', {class:'row-btns'}, [
+      btnClear,
+      el('button', {type:'button', text:'Сменить тему', on:{click: () => { toggleTheme(); }}}),
+      el('button', {type:'button', text:'Закрыть', on:{click: close}})
+    ]),
     el('p', {class:'muted', style:{padding:'0', margin:'16px 0 6px'}, text:'Заблокированные:'}),
     blockedWrap
   ]));
