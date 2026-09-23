@@ -572,7 +572,7 @@ async function refreshMessages(){
 
     // строим «отпечаток» списка
     const hash = JSON.stringify((list || []).map(m => [
-      m.id, m.text, m.kind, m.deleted, m.edited, m.read_at,
+      m.id, m.text, m.kind, m.deleted, m.edited,
       (m.reactions || []).map(r => r.emoji).join(''),
       m.reply_to || 0
     ]));
