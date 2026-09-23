@@ -45,7 +45,6 @@ def init():
       created REAL DEFAULT (extract(epoch from now())),
       UNIQUE(message_id, user_id)
     );""")
-    # группы
     cur.execute("""
     CREATE TABLE IF NOT EXISTS groups(
       id SERIAL PRIMARY KEY,
@@ -67,6 +66,14 @@ def init():
       text TEXT NOT NULL,
       kind TEXT DEFAULT 'text',
       created REAL DEFAULT (extract(epoch from now()))
+    );""")
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS blocks(
+      id SERIAL PRIMARY KEY,
+      blocker INTEGER NOT NULL,
+      blocked INTEGER NOT NULL,
+      created REAL DEFAULT (extract(epoch from now())),
+      UNIQUE(blocker, blocked)
     );""")
     con.commit(); cur.close(); con.close()
 
@@ -172,8 +179,11 @@ def users():
     touch_online(uid)
     q = request.args.get("q", "").strip()
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT id,username,avatar,last_seen FROM users WHERE id<>%s AND username LIKE %s ORDER BY username",
-                (uid, f"%{q}%"))
+    cur.execute("""SELECT id,username,avatar,last_seen FROM users
+        WHERE id<>%s AND username LIKE %s
+        AND id NOT IN (SELECT blocked FROM blocks WHERE blocker=%s)
+        AND id NOT IN (SELECT blocker FROM blocks WHERE blocked=%s)
+        ORDER BY username""", (uid, f"%{q}%", uid, uid))
     rows = cur.fetchall()
     cur.close(); con.close()
     now = time.time()
@@ -190,6 +200,12 @@ def messages(uid):
         return jsonify(error="auth"), 401
     touch_online(me)
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""SELECT 1 FROM blocks
+        WHERE (blocker=%s AND blocked=%s) OR (blocker=%s AND blocked=%s)""",
+        (me, uid, uid, me))
+    if cur.fetchone():
+        cur.close(); con.close()
+        return jsonify(messages=[])
     cur.execute("""SELECT id,sender,receiver,text,kind,created,read_at FROM messages
         WHERE (sender=%s AND receiver=%s) OR (sender=%s AND receiver=%s) ORDER BY id""",
         (me, uid, uid, me))
@@ -229,6 +245,12 @@ def send():
     if not cur.fetchone():
         cur.close(); con.close()
         return jsonify(error="Пользователь не найден."), 404
+    cur.execute("""SELECT 1 FROM blocks
+        WHERE (blocker=%s AND blocked=%s) OR (blocker=%s AND blocked=%s)""",
+        (me, receiver, receiver, me))
+    if cur.fetchone():
+        cur.close(); con.close()
+        return jsonify(error="Сообщение не может быть доставлено."), 403
     cur.execute("INSERT INTO messages(sender,receiver,text,kind) VALUES(%s,%s,%s,%s) RETURNING id,sender,receiver,text,kind,created,read_at",
                 (me, receiver, text, kind))
     row = cur.fetchone()
@@ -284,6 +306,47 @@ def get_typing():
     if t and t["from"] == who and now - t["ts"] < 5:
         return jsonify(typing=True)
     return jsonify(typing=False)
+
+# ---------- БЛОКИРОВКА ----------
+
+@app.post("/api/block")
+def block_user():
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    d = request.json or {}
+    try: target = int(d.get("user_id", 0))
+    except: return jsonify(error="Плохой user_id"), 400
+    if not target or target == me:
+        return jsonify(error="Нельзя"), 400
+    con = db(); cur = con.cursor()
+    cur.execute("INSERT INTO blocks(blocker,blocked) VALUES(%s,%s) ON CONFLICT DO NOTHING", (me, target))
+    con.commit(); cur.close(); con.close()
+    return jsonify(ok=True)
+
+@app.post("/api/unblock")
+def unblock_user():
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    d = request.json or {}
+    try: target = int(d.get("user_id", 0))
+    except: return jsonify(error="Плохой user_id"), 400
+    if not target:
+        return jsonify(error="Нет user_id"), 400
+    con = db(); cur = con.cursor()
+    cur.execute("DELETE FROM blocks WHERE blocker=%s AND blocked=%s", (me, target))
+    con.commit(); cur.close(); con.close()
+    return jsonify(ok=True)
+
+@app.get("/api/blocks")
+def list_blocks():
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""SELECT u.id, u.username, u.avatar FROM blocks b
+        JOIN users u ON u.id=b.blocked WHERE b.blocker=%s ORDER BY u.username""", (me,))
+    rows = cur.fetchall()
+    cur.close(); con.close()
+    return jsonify(blocks=[dict(r) for r in rows])
 
 # ---------- ГРУППЫ ----------
 
