@@ -72,12 +72,15 @@
   .b .player .bar{flex:1;height:4px;background:var(--border2);border-radius:2px;position:relative;min-width:80px}
   .b .player .bar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--primary);border-radius:2px;width:0%;transition:width .1s linear}
   .b .player .time{font-size:12px;color:var(--muted);min-width:36px;text-align:right}
-  .b img.att{max-width:100%;border-radius:10px;margin-top:2px;display:block}
+  .b img.att{max-width:100%;max-height:340px;border-radius:10px;margin-top:2px;display:block;cursor:pointer}
   .b .reacts{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
   .b .reacts span{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1px 6px;font-size:12px}
   .compose-wrap{border-top:1px solid var(--border);background:var(--card)}
   .reply-preview{padding:8px 12px;background:var(--me-bar);border-left:3px solid var(--primary);display:flex;justify-content:space-between;align-items:center;font-size:13px}
   .reply-preview .x{border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px}
+  .attach-preview{padding:8px 12px;background:var(--me-bar);display:none;align-items:center;gap:10px;border-top:1px solid var(--border)}
+  .attach-preview img{max-height:80px;border-radius:8px;display:block}
+  .attach-preview .x{border:0;background:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px}
   .compose{display:flex;padding:10px;gap:8px;align-items:center;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
   .compose input{flex:1;padding:12px 14px;border:1px solid var(--border2);border-radius:20px;min-width:0;font-size:16px;background:var(--input);color:var(--text)}
   .compose button.icon{width:42px;height:42px;background:var(--me-bar);color:var(--text);border:0;border-radius:50%;font-size:18px;flex:0 0 auto}
@@ -105,6 +108,8 @@
   .member-list{max-height:200px;overflow:auto;text-align:left;border:1px solid var(--border);border-radius:10px;padding:6px;margin:8px 0}
   .member-list label{display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;border-radius:8px}
   .member-list label:hover{background:var(--hover)}
+  .img-viewer{position:fixed;inset:0;background:#000d;display:flex;align-items:center;justify-content:center;z-index:2000;padding:16px;cursor:pointer}
+  .img-viewer img{max-width:100%;max-height:100%;border-radius:8px}
   @media (max-width: 700px){
     .app{max-width:none;position:relative;overflow:hidden}
     .side{width:100%;border-right:0;padding:14px;padding-top:calc(14px + env(safe-area-inset-top))}
@@ -132,7 +137,7 @@ const api = async (u, o = {}) => {
   return d;
 };
 
-const state = { me: null, peer: null, group: null, tab: 'users', timer: null, typingSent: 0, replyTo: null, editId: null };
+const state = { me: null, peer: null, group: null, tab: 'users', timer: null, typingSent: 0, replyTo: null, editId: null, pendingImage: null };
 const root = document.getElementById('root');
 let appEl = null;
 let typingLine = null;
@@ -177,6 +182,14 @@ function fmtTime(ts){
   const h = String(d.getHours()).padStart(2,'0');
   const m = String(d.getMinutes()).padStart(2,'0');
   return h + ':' + m;
+}
+
+function openImageViewer(src){
+  const overlay = el('div', {class:'img-viewer'});
+  const img = el('img', {src});
+  overlay.appendChild(img);
+  overlay.addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
 }
 
 /* ======== ТЁМНАЯ ТЕМА ======== */
@@ -290,9 +303,43 @@ async function renderApp(){
   replyPreview.appendChild(replyText);
   replyPreview.appendChild(replyX);
 
+  const attachPreview = el('div', {class:'attach-preview'});
+  const attachImg = el('img');
+  const attachX = el('button', {class:'x', type:'button', text:'×'});
+  attachX.addEventListener('click', () => { state.pendingImage = null; refreshAttachPreview(); });
+  attachPreview.appendChild(attachImg);
+  attachPreview.appendChild(attachX);
+
   const btnSend = el('button', {class:'send', type:'button', text:'➤'});
   const btnSmile = el('button', {class:'icon', type:'button', text:'😊'});
+  const btnAttach = el('button', {class:'icon', type:'button', text:'📎', title:'Прикрепить картинку'});
   const btnMic = el('button', {class:'icon', type:'button', text:'🎤'});
+
+  const fileInput = el('input', {type:'file', accept:'image/*'});
+  fileInput.style.display = 'none';
+  btnAttach.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    if (f.size > 2 * 1024 * 1024){ alert('Максимум 2 МБ.'); fileInput.value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.pendingImage = String(reader.result);
+      refreshAttachPreview();
+      fileInput.value = '';
+    };
+    reader.readAsDataURL(f);
+  });
+
+  function refreshAttachPreview(){
+    if (state.pendingImage){
+      attachPreview.style.display = 'flex';
+      attachImg.src = state.pendingImage;
+    } else {
+      attachPreview.style.display = 'none';
+      attachImg.removeAttribute('src');
+    }
+  }
 
   function refreshReplyPreview(){
     if (state.replyTo){
@@ -456,8 +503,10 @@ async function renderApp(){
       chatHead, msgsBox, typingLine,
       el('div', {class:'compose-wrap'}, [
         replyPreview,
+        attachPreview,
         emojiPanel,
-        el('div', {class:'compose'}, [btnSmile, inpText, btnMic, btnSend])
+        el('div', {class:'compose'}, [btnSmile, btnAttach, inpText, btnMic, btnSend]),
+        fileInput
       ])
     ])
   ]);
@@ -531,7 +580,7 @@ async function loadGroups(q){
 async function openChat(user){
   lastListHash = '';
   state.peer = { id: user.id, username: user.username, avatar: user.avatar };
-  state.group = null; state.replyTo = null; state.editId = null;
+  state.group = null; state.replyTo = null; state.editId = null; state.pendingImage = null;
   chatHeadRef.querySelector('.name').textContent = user.username;
   chatHeadRef.querySelector('.sub').textContent = '';
   const headAva = chatHeadRef.querySelector('.row').firstChild;
@@ -547,7 +596,7 @@ async function openChat(user){
 async function openGroup(g){
   lastListHash = '';
   state.group = g;
-  state.peer = null; state.replyTo = null; state.editId = null;
+  state.peer = null; state.replyTo = null; state.editId = null; state.pendingImage = null;
   chatHeadRef.querySelector('.name').textContent = g.name;
   chatHeadRef.querySelector('.sub').textContent = g.members ? (g.members.length + ' участн.') : '';
   const headAva = chatHeadRef.querySelector('.row').firstChild;
@@ -573,7 +622,7 @@ async function refreshMessages(){
     } else { return; }
 
     const hash = JSON.stringify((list || []).map(m => [
-      m.id, m.text, m.kind, m.deleted, m.edited,
+      m.id, m.kind, m.deleted, m.edited,
       (m.reactions || []).map(r => r.emoji).join(''),
       m.reply_to || 0
     ]));
@@ -690,7 +739,9 @@ function renderMessage(m, isGroup){
   } else if (m.kind === 'voice'){
     b.appendChild(makeVoicePlayer(m.text, m.id));
   } else if (m.kind === 'image'){
-    b.appendChild(el('img', {class:'att', src: m.text}));
+    const img = el('img', {class:'att', src: m.text});
+    img.addEventListener('click', () => openImageViewer(m.text));
+    b.appendChild(img);
   } else {
     b.appendChild(document.createTextNode(m.text));
   }
@@ -736,7 +787,7 @@ function showCtxMenu(x, y, m, out, isGroup){
   btnReact.addEventListener('click', () => { menu.remove(); showReactPopup(x, y, m); });
   menu.appendChild(btnReact);
 
-  if (out && !m.deleted){
+  if (out && !m.deleted && m.kind === 'text'){
     const btnEdit = el('button', {type:'button', text:'✏ Изменить'});
     btnEdit.addEventListener('click', () => {
       state.editId = m.id; state.replyTo = null;
@@ -746,7 +797,9 @@ function showCtxMenu(x, y, m, out, isGroup){
       menu.remove();
     });
     menu.appendChild(btnEdit);
+  }
 
+  if (out && !m.deleted){
     const btnDel = el('button', {type:'button', text:'🗑 Удалить', style:{color:'#ea4335'}});
     btnDel.addEventListener('click', async () => {
       try {
@@ -786,6 +839,27 @@ function showReactPopup(x, y, m){
 
 async function sendMessage(inpText){
   const text = inpText.value.trim();
+  // если есть картинка — отправляем её
+  if (state.pendingImage){
+    const payload = { text: state.pendingImage, kind: 'image' };
+    if (state.replyTo) payload.reply_to = state.replyTo.id;
+    try {
+      if (state.group){
+        await api('/api/groups/' + state.group.id + '/messages', { method:'POST', body: JSON.stringify(payload) });
+      } else if (state.peer){
+        payload.receiver = state.peer.id;
+        await api('/api/messages', { method:'POST', body: JSON.stringify(payload) });
+      } else { return; }
+      state.pendingImage = null;
+      if (window.__refreshReplyPreview) window.__refreshReplyPreview();
+      // обновим превью вложения
+      const ap = document.querySelector('.attach-preview');
+      if (ap) ap.style.display = 'none';
+      state.replyTo = null;
+      await refreshMessages();
+    } catch(e){ alert(e.message); }
+    return;
+  }
   if (!text) return;
   try {
     if (state.editId){
