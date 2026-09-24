@@ -67,7 +67,7 @@
   .b .edited{font-size:11px;color:var(--muted);margin-left:4px}
   .b .meta{font-size:11px;color:var(--muted);margin-top:3px;display:flex;gap:4px;align-items:center;justify-content:flex-end}
   .b .meta .check{color:#5aa9ff}
-    .b .player{display:flex;align-items:center;gap:8px;margin-top:4px;min-width:180px}
+  .b .player{display:flex;align-items:center;gap:8px;margin-top:4px;min-width:180px}
   .b .player button.play{width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;border:0;font-size:16px;flex:0 0 auto;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .b .player .bar{flex:1;height:4px;background:var(--border2);border-radius:2px;position:relative;min-width:80px}
   .b .player .bar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--primary);border-radius:2px;width:0%;transition:width .1s linear}
@@ -141,6 +141,7 @@ let groupsBoxRef = null;
 let msgsBoxRef = null;
 let chatHeadRef = null;
 let lastListHash = '';
+let playerActive = false;
 
 const EMOJI_LIST = ('😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😜 🤪 😝 🤗 🤔 🤨 😐 😑 😶 🙄 😏 😣 😥 😮 🤐 😯 😪 😴 😛 😕 😟 🙁 😞 😔 😢 😭 😤 😠 😡 🤬 🤯 😳 🥺 😱 😨 😰 😓 😩 😫 🥱 🤤 👋 👍 👎 👌 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👏 🙌 👐 🤲 🤝 🙏 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 🔥 ✨ 🎉 🎊 🎁 🎈').split(/\s+/).filter(Boolean);
 
@@ -314,7 +315,7 @@ async function renderApp(){
   }
   btnSmile.addEventListener('click', () => emojiPanel.classList.toggle('open'));
 
-    let mediaRec = null, chunks = [], recStream = null, recMime = '';
+  let mediaRec = null, chunks = [], recStream = null, recMime = '';
   let recTimer = null, recSeconds = 0;
 
   function pickMime(){
@@ -348,11 +349,10 @@ async function renderApp(){
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
-    async function blobToWav(blob){
+  async function blobToWav(blob){
     const arrayBuf = await blob.arrayBuffer();
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const audioBuf = await ctx.decodeAudioData(arrayBuf);
-    // ресемплим в 16000 Hz, моно
     const targetRate = 16000;
     const srcSamples = audioBuf.getChannelData(0);
     const srcRate = audioBuf.sampleRate;
@@ -528,7 +528,8 @@ async function loadGroups(q){
   } catch(e){ console.error(e); }
 }
 
-async function openChat(user){  lastListHash = '';
+async function openChat(user){
+  lastListHash = '';
   state.peer = { id: user.id, username: user.username, avatar: user.avatar };
   state.group = null; state.replyTo = null; state.editId = null;
   chatHeadRef.querySelector('.name').textContent = user.username;
@@ -544,7 +545,8 @@ async function openChat(user){  lastListHash = '';
 }
 
 async function openGroup(g){
-  state.group = g;lastListHash = '';
+  lastListHash = '';
+  state.group = g;
   state.peer = null; state.replyTo = null; state.editId = null;
   chatHeadRef.querySelector('.name').textContent = g.name;
   chatHeadRef.querySelector('.sub').textContent = g.members ? (g.members.length + ' участн.') : '';
@@ -558,9 +560,9 @@ async function openGroup(g){
   if (isMobile() && appEl) appEl.classList.add('chat-open');
 }
 
-  
 async function refreshMessages(){
   try {
+    if (playerActive) return;
     let list, isGroup = false;
     if (state.group){
       const d = await api('/api/groups/' + state.group.id + '/messages');
@@ -570,17 +572,13 @@ async function refreshMessages(){
       list = d.messages;
     } else { return; }
 
-    // строим «отпечаток» списка
     const hash = JSON.stringify((list || []).map(m => [
       m.id, m.text, m.kind, m.deleted, m.edited,
       (m.reactions || []).map(r => r.emoji).join(''),
       m.reply_to || 0
     ]));
 
-    if (hash === lastListHash){
-      // ничего не менялось — не трогаем DOM, плеер продолжает играть
-      return;
-    }
+    if (hash === lastListHash) return;
     lastListHash = hash;
     renderList(list, isGroup);
   } catch(e){ console.error(e); }
@@ -593,7 +591,7 @@ function renderList(list, isGroup){
   msgsBoxRef.scrollTop = msgsBoxRef.scrollHeight;
 }
 
-function makeVoicePlayer(src){
+function makeVoicePlayer(src, msgId){
   const wrap = el('div', {class:'player'});
   const btn = el('button', {class:'play', type:'button', text:'▶'});
   const bar = el('div', {class:'bar'});
@@ -638,6 +636,8 @@ function makeVoicePlayer(src){
     if (source){ try { source.stop(); } catch(e){} source = null; }
     if (raf){ cancelAnimationFrame(raf); raf = null; }
     timeEl.textContent = fmtDur(duration);
+    playerActive = false;
+    refreshMessages();
   }
 
   btn.addEventListener('click', async () => {
@@ -653,6 +653,8 @@ function makeVoicePlayer(src){
       playing = false;
       btn.textContent = '▶';
       if (raf){ cancelAnimationFrame(raf); raf = null; }
+      playerActive = false;
+      refreshMessages();
       return;
     }
 
@@ -664,11 +666,14 @@ function makeVoicePlayer(src){
     startedAt = audioCtx.currentTime;
     playing = true;
     btn.textContent = '⏸';
+    playerActive = true;
     tick();
   });
 
   return wrap;
-}function renderMessage(m, isGroup){
+}
+
+function renderMessage(m, isGroup){
   const out = m.sender === state.me.id;
   const b = el('div', {class: 'b' + (out ? ' out' : '')});
   if (isGroup && !out && m.sender_name) b.appendChild(el('div', {class:'sender', text: m.sender_name}));
@@ -682,8 +687,8 @@ function makeVoicePlayer(src){
 
   if (m.deleted){
     b.appendChild(el('span', {class:'deleted', text:'сообщение удалено'}));
-    } else if (m.kind === 'voice'){
-    b.appendChild(makeVoicePlayer(m.text));
+  } else if (m.kind === 'voice'){
+    b.appendChild(makeVoicePlayer(m.text, m.id));
   } else if (m.kind === 'image'){
     b.appendChild(el('img', {class:'att', src: m.text}));
   } else {
