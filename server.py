@@ -259,6 +259,9 @@ def send():
     except: reply_to = 0
     if not text.strip() or not receiver:
         return jsonify(error="Пустое сообщение."), 400
+    # ограничение размера для картинок: 2 МБ base64
+    if kind == "image" and len(text) > 3 * 1024 * 1024:
+        return jsonify(error="Картинка слишком большая (макс 2 МБ)."), 413
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT 1 FROM users WHERE id=%s", (receiver,))
     if not cur.fetchone():
@@ -475,6 +478,8 @@ def group_send(gid):
     except: reply_to = 0
     if not text.strip():
         return jsonify(error="Пустое сообщение."), 400
+    if kind == "image" and len(text) > 3 * 1024 * 1024:
+        return jsonify(error="Картинка слишком большая (макс 2 МБ)."), 413
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT 1 FROM group_members WHERE group_id=%s AND user_id=%s", (gid, me))
     if not cur.fetchone():
