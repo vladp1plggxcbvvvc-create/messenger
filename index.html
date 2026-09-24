@@ -1050,7 +1050,7 @@ const call = { active:false, pc:null, localStream:null, remoteAudio:null, room:n
 let offerHandled = false;
 
 function canCall(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.RTCPeerConnection); }
-function getIceServers(){ return [ { urls:'stun:stun.l.google.com:19302' }, { urls:'stun:stun1.l.google.com:19302' } ]; }
+function getIceServers(){ return [ { urls:'stun:stun.l.google.com:19302' }, { urls:'stun:stun1.l.google.com:19302' }, { urls:'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject' }, { urls:'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject' } ]; }
 function newPc(){
   const pc = new RTCPeerConnection({ iceServers: getIceServers() });
   pc.onicecandidate = (ev) => { if (ev.candidate) postSignal({ type:'ice', candidate: ev.candidate.toJSON() }); };
