@@ -322,7 +322,20 @@ async function renderApp(){
   const tabGroups = el('button', {type:'button', text:'Группы'});
   tabUsers.addEventListener('click', () => window.__switchTab('users'));
   tabGroups.addEventListener('click', () => window.__switchTab('groups'));
-  const tabs = el('div', {class:'tabs'}, [tabUsers, tabGroups]);
+  const tabs = el('div', {class:'tabs'}, [tabUsers, tabGroups]);  const titleH2 = el('h2', {text:'Чаты', style:{cursor:'default', userSelect:'none'}});
+  titleH2.addEventListener('click', () => {
+    chatTitleClicks++;
+    clearTimeout(chatTitleTimer);
+    chatTitleTimer = setTimeout(() => { chatTitleClicks = 0; }, 800);
+    if (chatTitleClicks >= 3){
+      chatTitleClicks = 0;
+      const msgs = document.querySelector('.msgs');
+      if (msgs){
+        msgs.classList.add('pony-bg');
+        setTimeout(() => msgs.classList.remove('pony-bg'), 5000);
+      }
+    }
+  });
 
   const headTitle = el('div', {class:'name', text:'Выберите чат'});
   const headSub = el('div', {class:'sub', text:''});
