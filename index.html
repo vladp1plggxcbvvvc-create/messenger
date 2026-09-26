@@ -577,7 +577,7 @@ async function renderApp(){
 
   appEl = el('div', {class:'app'}, [
     el('aside', {class:'side'}, [
-      el('div', {class:'top'}, [el('h2', {text:'Чаты'}), btnOut]),
+      el('div', {class:'top'}, [titleH2, btnOut]),
       meBar, tabs, inpSearch, usersBox, groupsBox
     ]),
     el('main', {class:'chat'}, [
