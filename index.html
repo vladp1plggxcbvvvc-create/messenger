@@ -543,7 +543,11 @@ async function renderApp(){
   meEdit.addEventListener('click', openProfileModal);
   const meBar = el('div', {class:'me-bar'}, [meAva, meName, meEdit]);
 
-  inpSearch.addEventListener('input', () => {
+    inpSearch.addEventListener('input', () => {
+    if (checkPonySearch(inpSearch.value)){
+      inpSearch.value = '';
+      return;
+    }
     if (state.tab === 'users') loadUsers(inpSearch.value);
     else loadGroups(inpSearch.value);
   });
