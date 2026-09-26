@@ -108,7 +108,17 @@
   .member-list{max-height:200px;overflow:auto;text-align:left;border:1px solid var(--border);border-radius:10px;padding:6px;margin:8px 0}
   .member-list label{display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;border-radius:8px}
   .member-list label:hover{background:var(--hover)}
-  .img-viewer{position:fixed;inset:0;background:#000d;display:flex;align-items:center;justify-content:center;z-index:2000;padding:16px;cursor:pointer}
+  .img-viewer{position:fixed;inset:0;background:#000d;display:flex;align-items:center;justify-content:center;z-index:2000;padding:16px;cursor:pointer}  .pony-bg{position:relative}
+  .pony-bg::before{content:'';position:absolute;inset:0;background-image:url('img/pony.png');background-size:cover;background-position:center;opacity:0.12;pointer-events:none;z-index:0}
+  .pony-bg > *{position:relative;z-index:1}
+  .pony-secret-btn{position:fixed;right:10px;bottom:10px;width:24px;height:24px;border-radius:50%;background:linear-gradient(45deg,#ff9ec7,#ffe17d,#8fe3c7,#8fd0ff,#c9a7ff);opacity:0.4;border:0;cursor:pointer;z-index:9998;transition:opacity .2s}
+  .pony-secret-btn:hover{opacity:1}
+  .pony-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+  .pony-grid button{aspect-ratio:1;border:1px solid var(--border);border-radius:12px;background:var(--card);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .pony-grid button img{width:100%;height:100%;object-fit:cover}
+  .pony-grid button:hover{border-color:var(--primary)}
+  .hue-rainbow{animation:hueSpin 3s linear infinite}
+  @keyframes hueSpin{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
   .img-viewer img{max-width:100%;max-height:100%;border-radius:8px}
   @media (max-width: 700px){
     .app{max-width:none;position:relative;overflow:hidden}
