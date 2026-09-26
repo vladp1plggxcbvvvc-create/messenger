@@ -160,7 +160,61 @@ let playerActive = false;
 
 const EMOJI_LIST = ('😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😜 🤪 😝 🤗 🤔 🤨 😐 😑 😶 🙄 😏 😣 😥 😮 🤐 😯 😪 😴 😛 😕 😟 🙁 😞 😔 😢 😭 😤 😠 😡 🤬 🤯 😳 🥺 😱 😨 😰 😓 😩 😫 🥱 🤤 👋 👍 👎 👌 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👏 🙌 👐 🤲 🤝 🙏 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 🔥 ✨ 🎉 🎊 🎁 🎈').split(/\s+/).filter(Boolean);
 
-const REACT_LIST = ['👍','❤️','😂','🔥','😮','😢'];
+const REACT_LIST = ['👍','❤️','😂','🔥','😮','😢'];const PONY_LIST = [
+  { name: 'Флаттершай', src: 'img/fluttershy.png' },
+  { name: 'Рэйнбоу', src: 'img/rainbow.png' },
+  { name: 'Эплджек', src: 'img/applejack.png' },
+  { name: 'Пинки', src: 'img/pinky.png' },
+  { name: 'Рарити', src: 'img/rarity.png' },
+  { name: 'Твайлайт', src: 'img/twilight.png' }
+];
+
+let chatTitleClicks = 0;
+let chatTitleTimer = null;
+
+function openPonySecret(){
+  const overlay = el('div', {class:'overlay'});
+  const close = () => overlay.remove();
+  const grid = el('div', {class:'pony-grid'});
+  for (const p of PONY_LIST){
+    const b = el('button', {type:'button', title: p.name});
+    const img = el('img', {src: p.src, alt: p.name});
+    img.onerror = () => { b.textContent = '🦄'; img.remove(); };
+    b.appendChild(img);
+    b.addEventListener('click', () => {
+      document.body.classList.add('hue-rainbow');
+      setTimeout(() => document.body.classList.remove('hue-rainbow'), 3000);
+      alert('Дружба — это магия! ✨\n' + p.name + ' передаёт привет.');
+    });
+    grid.appendChild(b);
+  }
+  overlay.appendChild(el('div', {class:'modal'}, [
+    el('h3', {text:'🦄 Секретная комната'}),
+    el('p', {class:'muted', style:{padding:'0', margin:'0 0 8px'}, text:'Ты нашёл пони. Только никому.'}),
+    grid,
+    el('div', {class:'row-btns'}, [
+      el('button', {type:'button', text:'Закрыть', on:{click: close}})
+    ])
+  ]));
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.body.appendChild(overlay);
+}
+
+function attachPonySecretButton(){
+  if (document.getElementById('ponySecretBtn')) return;
+  const btn = el('button', {class:'pony-secret-btn', id:'ponySecretBtn', type:'button', title:'🦄'});
+  btn.addEventListener('click', openPonySecret);
+  document.body.appendChild(btn);
+}
+
+function checkPonySearch(q){
+  const s = String(q || '').trim().toLowerCase();
+  if (s === 'rainbow' || s === 'pony' || s === 'twilight' || s === 'пони' || s === 'радуга'){
+    openPonySecret();
+    return true;
+  }
+  return false;
+}
 
 function el(tag, props, children){
   const n = document.createElement(tag);
