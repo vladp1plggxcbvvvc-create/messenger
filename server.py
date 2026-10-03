@@ -24,8 +24,10 @@ def init():
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       avatar TEXT DEFAULT '',
+      email TEXT DEFAULT '',
       last_seen REAL DEFAULT 0
     );""")
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT DEFAULT ''")
     cur.execute("""
     CREATE TABLE IF NOT EXISTS messages(
       id SERIAL PRIMARY KEY,
@@ -87,6 +89,21 @@ def init():
       created REAL DEFAULT (extract(epoch from now())),
       UNIQUE(blocker, blocked)
     );""")
+    # Стикер-паки
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sticker_packs(
+      id SERIAL PRIMARY KEY,
+      owner INTEGER NOT NULL,
+      name TEXT UNIQUE NOT NULL,
+      created REAL DEFAULT (extract(epoch from now()))
+    );""")
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS stickers(
+      id SERIAL PRIMARY KEY,
+      pack_id INTEGER NOT NULL,
+      image TEXT NOT NULL,
+      created REAL DEFAULT (extract(epoch from now()))
+    );""")
     con.commit(); cur.close(); con.close()
 
 def pw(x): return hashlib.sha256(x.encode()).hexdigest()
@@ -122,7 +139,7 @@ def register():
     cur.close(); con.close()
     session["uid"] = uid
     online[uid] = time.time()
-    return jsonify(id=uid, username=u, avatar="")
+    return jsonify(id=uid, username=u, avatar="", email="")
 
 @app.post("/api/login")
 def login():
@@ -136,7 +153,7 @@ def login():
         return jsonify(error="Неверное имя или пароль."), 401
     session["uid"] = row["id"]
     touch_online(row["id"])
-    return jsonify(id=row["id"], username=row["username"], avatar=row["avatar"] or "")
+    return jsonify(id=row["id"], username=row["username"], avatar=row["avatar"] or "", email=row.get("email") or "")
 
 @app.post("/api/logout")
 def logout():
@@ -149,10 +166,42 @@ def me():
         return jsonify(user=None)
     touch_online(session["uid"])
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT id,username,avatar FROM users WHERE id=%s", (session["uid"],))
+    cur.execute("SELECT id,username,avatar,email FROM users WHERE id=%s", (session["uid"],))
     r = cur.fetchone()
     cur.close(); con.close()
     return jsonify(user=dict(r) if r else None)
+
+@app.post("/api/email")
+def set_email():
+    if not session.get("uid"):
+        return jsonify(error="auth"), 401
+    d = request.json or {}
+    email = (d.get("email") or "").strip()
+    con = db(); cur = con.cursor()
+    cur.execute("UPDATE users SET email=%s WHERE id=%s", (email, session["uid"]))
+    con.commit(); cur.close(); con.close()
+    return jsonify(ok=True, email=email)
+
+@app.post("/api/delete-account")
+def delete_account():
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    d = request.json or {}
+    if d.get("confirm") != "DELETE":
+        return jsonify(error="Нужно подтверждение"), 400
+    con = db(); cur = con.cursor()
+    cur.execute("DELETE FROM reactions WHERE user_id=%s", (me,))
+    cur.execute("DELETE FROM messages WHERE sender=%s OR receiver=%s", (me, me))
+    cur.execute("DELETE FROM group_messages WHERE sender=%s", (me,))
+    cur.execute("DELETE FROM group_members WHERE user_id=%s", (me,))
+    cur.execute("DELETE FROM groups WHERE owner=%s", (me,))
+    cur.execute("DELETE FROM blocks WHERE blocker=%s OR blocked=%s", (me, me))
+    cur.execute("DELETE FROM stickers WHERE pack_id IN (SELECT id FROM sticker_packs WHERE owner=%s)", (me,))
+    cur.execute("DELETE FROM sticker_packs WHERE owner=%s", (me,))
+    cur.execute("DELETE FROM users WHERE id=%s", (me,))
+    con.commit(); cur.close(); con.close()
+    session.clear()
+    return jsonify(ok=True)
 
 @app.post("/api/avatar")
 def set_avatar():
@@ -186,8 +235,7 @@ def set_username():
 @app.get("/api/users")
 def users():
     uid = session.get("uid")
-    if not uid:
-        return jsonify(error="auth"), 401
+    if not uid: return jsonify(error="auth"), 401
     touch_online(uid)
     q = request.args.get("q", "").strip()
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -208,8 +256,7 @@ def users():
 @app.get("/api/messages/<int:uid>")
 def messages(uid):
     me = session.get("uid")
-    if not me:
-        return jsonify(error="auth"), 401
+    if not me: return jsonify(error="auth"), 401
     touch_online(me)
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""SELECT 1 FROM blocks
@@ -224,8 +271,7 @@ def messages(uid):
         LEFT JOIN messages r ON r.id = m.reply_to
         LEFT JOIN users ru ON ru.id = r.sender
         WHERE (m.sender=%s AND m.receiver=%s) OR (m.sender=%s AND m.receiver=%s)
-        ORDER BY m.id""",
-        (me, uid, uid, me))
+        ORDER BY m.id""", (me, uid, uid, me))
     rows = cur.fetchall()
     cur.execute("UPDATE messages SET read_at=%s WHERE sender=%s AND receiver=%s AND read_at=0",
                 (time.time(), uid, me))
@@ -244,11 +290,26 @@ def messages(uid):
         out.append(d)
     return jsonify(messages=out)
 
+@app.get("/api/search/<int:uid>")
+def search_messages(uid):
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    q = request.args.get("q", "").strip()
+    if not q: return jsonify(results=[])
+    con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""SELECT id,sender,receiver,text,kind,created FROM messages
+        WHERE ((sender=%s AND receiver=%s) OR (sender=%s AND receiver=%s))
+        AND deleted=0 AND text ILIKE %s
+        ORDER BY id DESC LIMIT 50""",
+        (me, uid, uid, me, f"%{q}%"))
+    rows = cur.fetchall()
+    cur.close(); con.close()
+    return jsonify(results=[dict(r) for r in rows])
+
 @app.post("/api/messages")
 def send():
     me = session.get("uid")
-    if not me:
-        return jsonify(error="auth"), 401
+    if not me: return jsonify(error="auth"), 401
     touch_online(me)
     d = request.json or {}
     try: receiver = int(d.get("receiver", 0))
@@ -259,9 +320,8 @@ def send():
     except: reply_to = 0
     if not text.strip() or not receiver:
         return jsonify(error="Пустое сообщение."), 400
-    # ограничение размера для картинок: 2 МБ base64
-    if kind == "image" and len(text) > 3 * 1024 * 1024:
-        return jsonify(error="Картинка слишком большая (макс 2 МБ)."), 413
+    if kind in ("image", "sticker") and len(text) > 3 * 1024 * 1024:
+        return jsonify(error="Слишком большой файл (макс 2 МБ)."), 413
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT 1 FROM users WHERE id=%s", (receiver,))
     if not cur.fetchone():
@@ -325,8 +385,7 @@ def group_edit(gid, mid):
 @app.post("/api/react")
 def react():
     me = session.get("uid")
-    if not me:
-        return jsonify(error="auth"), 401
+    if not me: return jsonify(error="auth"), 401
     d = request.json or {}
     try: mid = int(d.get("message_id", 0))
     except: return jsonify(error="Нет данных"), 400
@@ -392,8 +451,7 @@ def unblock_user():
     d = request.json or {}
     try: target = int(d.get("user_id", 0))
     except: return jsonify(error="Плохой user_id"), 400
-    if not target:
-        return jsonify(error="Нет user_id"), 400
+    if not target: return jsonify(error="Нет user_id"), 400
     con = db(); cur = con.cursor()
     cur.execute("DELETE FROM blocks WHERE blocker=%s AND blocked=%s", (me, target))
     con.commit(); cur.close(); con.close()
@@ -478,8 +536,8 @@ def group_send(gid):
     except: reply_to = 0
     if not text.strip():
         return jsonify(error="Пустое сообщение."), 400
-    if kind == "image" and len(text) > 3 * 1024 * 1024:
-        return jsonify(error="Картинка слишком большая (макс 2 МБ)."), 413
+    if kind in ("image", "sticker") and len(text) > 3 * 1024 * 1024:
+        return jsonify(error="Слишком большой файл (макс 2 МБ)."), 413
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT 1 FROM group_members WHERE group_id=%s AND user_id=%s", (gid, me))
     if not cur.fetchone():
@@ -508,6 +566,65 @@ def group_add_member(gid):
     cur.execute("INSERT INTO group_members(group_id,user_id) VALUES(%s,%s) ON CONFLICT DO NOTHING", (gid, uid))
     con.commit(); cur.close(); con.close()
     return jsonify(ok=True)
+
+# ========== СТИКЕР-ПАКИ ==========
+
+@app.get("/api/sticker-packs")
+def my_sticker_packs():
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT id,name FROM sticker_packs WHERE owner=%s ORDER BY id", (me,))
+    packs = cur.fetchall()
+    out = []
+    for p in packs:
+        d = dict(p)
+        cur.execute("SELECT id,image FROM stickers WHERE pack_id=%s ORDER BY id", (p["id"],))
+        d["stickers"] = [dict(x) for x in cur.fetchall()]
+        out.append(d)
+    cur.close(); con.close()
+    return jsonify(packs=out)
+
+@app.post("/api/sticker-packs")
+def create_sticker_pack():
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    d = request.json or {}
+    name = (d.get("name") or "").strip()
+    if len(name) < 2:
+        return jsonify(error="Имя пака: минимум 2 символа."), 400
+    con = db(); cur = con.cursor()
+    try:
+        cur.execute("INSERT INTO sticker_packs(owner,name) VALUES(%s,%s) RETURNING id", (me, name))
+        pid = cur.fetchone()[0]
+        con.commit()
+    except psycopg2.errors.UniqueViolation:
+        con.rollback(); cur.close(); con.close()
+        return jsonify(error="Такой пак уже есть."), 409
+    cur.close(); con.close()
+    return jsonify(id=pid, name=name)
+
+@app.post("/api/sticker-packs/<int:pid>/stickers")
+def add_sticker(pid):
+    me = session.get("uid")
+    if not me: return jsonify(error="auth"), 401
+    d = request.json or {}
+    image = d.get("image") or ""
+    if not image: return jsonify(error="Нет картинки"), 400
+    if len(image) > 3 * 1024 * 1024:
+        return jsonify(error="Слишком большой файл (макс 2 МБ)."), 413
+    con = db(); cur = con.cursor()
+    cur.execute("SELECT owner FROM sticker_packs WHERE id=%s", (pid,))
+    row = cur.fetchone()
+    if not row or row[0] != me:
+        cur.close(); con.close()
+        return jsonify(error="Нет доступа"), 403
+    cur.execute("INSERT INTO stickers(pack_id,image) VALUES(%s,%s) RETURNING id", (pid, image))
+    sid = cur.fetchone()[0]
+    con.commit(); cur.close(); con.close()
+    return jsonify(id=sid)
+
+# ========== ЗВОНКИ ==========
 
 @app.post("/api/signal")
 def post_signal():
