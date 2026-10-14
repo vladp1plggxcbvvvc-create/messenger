@@ -647,7 +647,30 @@ async function renderApp(){
       ])
     ])
   ]);
-  root.appendChild(appEl);
+  root.appendChild(appEl);  if (state.me.is_admin){
+    const adminBtn = el('button', {
+      type: 'button',
+      text: '⚙',
+      title: 'Управление пользователями',
+      style: {
+        position: 'fixed',
+        left: '16px',
+        bottom: '16px',
+        width: '48px',
+        height: '48px',
+        borderRadius: '50%',
+        background: 'var(--primary)',
+        color: '#fff',
+        border: 0,
+        fontSize: '22px',
+        cursor: 'pointer',
+        boxShadow: '0 4px 16px #0004',
+        zIndex: 9999
+      },
+      on: { click: () => openAdminPanel() }
+    });
+    document.body.appendChild(adminBtn);
+  }
 
   window.__switchTab = function(t){
     state.tab = t;
