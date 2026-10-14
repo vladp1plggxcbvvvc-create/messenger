@@ -1204,9 +1204,7 @@ function openProfileModal(){
     btnClear,
     el('button', {type:'button', text:'Сменить тему', on:{click: () => { toggleTheme(); }}})
   ];
-  if (state.me.is_admin){
-    rowBtns.push(el('button', {type:'button', text:'⚙ Управление', style:{background:'var(--primary)', color:'#fff'}, on:{click: () => { close(); openAdminPanel(); }}}));
-  }
+ 
   rowBtns.push(el('button', {type:'button', text:'Закрыть', on:{click: close}}));
 
   overlay.appendChild(el('div', {class:'modal'}, [
