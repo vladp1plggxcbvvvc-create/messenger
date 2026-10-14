@@ -1325,12 +1325,12 @@ async function openAdminPanel(){
   search.addEventListener('input', loadList);
   loadList();
 
-  overlay.appendChild(el('div', {class:'modal', style:{maxWidth:'520px'}}, [
-    el('h3', {text:'⚙ Управление пользователями'}),
+    overlay.appendChild(el('div', {class:'modal', style:{maxWidth:'900px', width:'96vw', maxHeight:'94vh'}}, [
+    el('h3', {text:'⚙ Управление пользователями', style:{marginBottom:'14px', fontSize:'22px'}}),
     search,
     listWrap,
     el('div', {class:'row-btns'}, [
-      el('button', {type:'button', text:'Закрыть', on:{click: close}})
+      el('button', {type:'button', text:'Закрыть', style:{padding:'12px 32px', fontSize:'16px'}, on:{click: close}})
     ])
   ]));
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
