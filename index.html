@@ -649,6 +649,30 @@ async function renderApp(){
   ]);
   root.appendChild(appEl);
   
+  }  if (state.me.is_admin){
+    const adminBtn = document.createElement('button');
+    adminBtn.type = 'button';
+    adminBtn.textContent = '⚙';
+    adminBtn.title = 'Управление пользователями';
+    adminBtn.setAttribute('style', [
+      'position: fixed',
+      'left: 20px',
+      'bottom: 20px',
+      'width: 56px',
+      'height: 56px',
+      'border-radius: 50%',
+      'background: #3678e8',
+      'color: #ffffff',
+      'border: 0',
+      'font-size: 26px',
+      'line-height: 56px',
+      'text-align: center',
+      'cursor: pointer',
+      'box-shadow: 0 4px 16px rgba(0,0,0,0.3)',
+      'z-index: 2147483647'
+    ].join(';'));
+    adminBtn.addEventListener('click', () => openAdminPanel());
+    document.body.appendChild(adminBtn);
   }
 
   window.__switchTab = function(t){
