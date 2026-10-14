@@ -1411,7 +1411,7 @@ setInterval(async () => {
       showCallModal('Входящий звонок от ' + d.invite.fromName, ['accept', 'reject']);
     }
   } catch(e){}
-}, 2000);
+}, 5000);
 
 function startPolling(){
   clearInterval(call.pollTimer);
