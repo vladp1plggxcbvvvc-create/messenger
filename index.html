@@ -253,7 +253,7 @@ function renderAuth(){
         method:'POST',
         body: JSON.stringify({ username: inpU.value.trim(), password: inpP.value })
       });
-      state.me = { id: d.id, username: d.username, avatar: d.avatar || '', email: d.email || '' };
+      state.me = { id: d.id, username: d.username, avatar: d.avatar || '', email: d.email || '', is_admin: !!d.is_admin };
       renderApp();
     } catch(e){ errEl.textContent = e.message; }
   });
@@ -291,8 +291,7 @@ async function handleBotMessage(text){
       state.botStep = 2;
       botSay('Отлично! Пришли картинку — я сделаю из неё стикер 📎');
     } else if (t === 'нет' || t === 'no'){
-      state.botActive = false;
-      state.botStep = 0;
+      state.botActive = false; state.botStep = 0;
       botSay('Ок, если что — пиши "бот"');
     } else {
       botSay('Напиши "да" или "нет"');
@@ -300,11 +299,7 @@ async function handleBotMessage(text){
     return true;
   }
   if (state.botStep === 2){
-    if (state.pendingImage){
-      state.botStep = 3;
-      botSay('Красиво! Как назовём стикер-пак?');
-      return true;
-    }
+    if (state.pendingImage){ state.botStep = 3; botSay('Красиво! Как назовём стикер-пак?'); return true; }
     botSay('Жду картинку — нажми 📎 и прикрепи её');
     return true;
   }
@@ -314,15 +309,11 @@ async function handleBotMessage(text){
       const packs = await api('/api/sticker-packs');
       const existing = (packs.packs || []).find(p => p.name.toLowerCase() === text.trim().toLowerCase());
       if (existing){
-        state.botPackId = existing.id;
-        state.botPackName = existing.name;
-        state.botStep = 4;
+        state.botPackId = existing.id; state.botPackName = existing.name; state.botStep = 4;
         botSay('Такой пак уже есть — добавлю туда! Пришли ещё картинку 📎');
       } else {
         const p = await api('/api/sticker-packs', { method:'POST', body: JSON.stringify({ name: text.trim() })});
-        state.botPackId = p.id;
-        state.botPackName = p.name;
-        state.botStep = 4;
+        state.botPackId = p.id; state.botPackName = p.name; state.botStep = 4;
         botSay('Пак "' + p.name + '" создан! Теперь пришли картинку для стикера 📎');
       }
     } catch(e){ botSay('Ошибка: ' + e.message); }
@@ -331,15 +322,13 @@ async function handleBotMessage(text){
   if (state.botStep === 4){
     if (state.pendingImage){
       try {
-        await api('/api/sticker-packs/' + state.botPackId + '/stickers', {
-          method:'POST', body: JSON.stringify({ image: state.pendingImage })
-        });
+        await api('/api/sticker-packs/' + state.botPackId + '/stickers', { method:'POST', body: JSON.stringify({ image: state.pendingImage })});
         state.pendingImage = null;
         const ap = document.querySelector('.attach-preview');
         if (ap) ap.style.display = 'none';
         await loadStickers();
         state.botStep = 5;
-        botSay('Стикер добавлен! Хочешь ещё одну картинку в этот пак? Напиши "да" или "готово"');
+        botSay('Стикер добавлен! Ещё одну картинку? Напиши "да" или "готово"');
       } catch(e){ botSay('Ошибка: ' + e.message); }
       return true;
     }
@@ -689,7 +678,7 @@ async function loadUsers(q){
       const av = makeAvatar(u, 'small');
       const dot = el('div', {class:'dot' + (u.online ? ' on' : '')});
       const wrap = el('div', {});
-      wrap.appendChild(el('b', {text: u.username}));
+      wrap.appendChild(el('b', {text: u.username + (u.username === 'admin_bot' ? ' 🤖' : '')}));
       const item = el('div', {class:'user' + (active ? ' active' : '')}, [av, wrap, dot]);
       item.addEventListener('click', () => openChat(u));
       usersBoxRef.appendChild(item);
@@ -859,7 +848,7 @@ function makeVoicePlayer(src, msgId){
 
 function renderMessage(m, isGroup){
   const out = m.sender === state.me.id;
-  const b = el('div', {class: 'b' + (out ? ' out' : '')});
+  const b = el('div', {class: 'b' + (out ? ' out' : ''), 'data-mid': m.id});
   if (isGroup && !out && m.sender_name) b.appendChild(el('div', {class:'sender', text: m.sender_name}));
 
   if (m.reply_to && m.reply_text){
@@ -891,10 +880,7 @@ function renderMessage(m, isGroup){
 
   if (m.reactions && m.reactions.length){
     const rw = el('div', {class:'reacts'});
-    for (const r of m.reactions){
-      const s = el('span', {text: r.emoji});
-      rw.appendChild(s);
-    }
+    for (const r of m.reactions) rw.appendChild(el('span', {text: r.emoji}));
     b.appendChild(rw);
   }
 
@@ -1042,7 +1028,20 @@ async function sendMessage(inpText){
     return;
   }
   if (!text) return;
-  // бот
+  // admin_bot
+  if (state.peer && state.peer.username === 'admin_bot'){
+    inpText.value = '';
+    try {
+      const d = await api('/api/admin/secret', { method:'POST', body: JSON.stringify({ code: text.trim() })});
+      state.me.is_admin = true;
+      botSay('✅ Права администратора активированы. Обновите страницу.');
+    } catch(e){
+      botSay('❌ ' + (e.message || 'Неверный код'));
+    }
+    await refreshMessages();
+    return;
+  }
+  // бот-стикермейкер
   if (state.botActive && (text.toLowerCase() === 'бот' || state.botStep > 0)){
     const handled = await handleBotMessage(text);
     if (handled){ inpText.value = ''; return; }
@@ -1196,6 +1195,15 @@ function openProfileModal(){
       .catch(e => alert(e.message));
   });
 
+  const rowBtns = [
+    btnClear,
+    el('button', {type:'button', text:'Сменить тему', on:{click: () => { toggleTheme(); }}})
+  ];
+  if (state.me.is_admin){
+    rowBtns.push(el('button', {type:'button', text:'⚙ Управление', style:{background:'var(--primary)', color:'#fff'}, on:{click: () => { close(); openAdminPanel(); }}}));
+  }
+  rowBtns.push(el('button', {type:'button', text:'Закрыть', on:{click: close}}));
+
   overlay.appendChild(el('div', {class:'modal'}, [
     el('h3', {text:'Профиль'}),
     previewWrap,
@@ -1207,14 +1215,97 @@ function openProfileModal(){
     emojiGrid,
     el('p', {class:'muted', style:{padding:'0', margin:'14px 0 0'}, text:'Или картинка с устройства:'}),
     btnFile, fileInput,
-    el('div', {class:'row-btns'}, [
-      btnClear,
-      el('button', {type:'button', text:'Сменить тему', on:{click: () => { toggleTheme(); }}}),
-      el('button', {type:'button', text:'Закрыть', on:{click: close}})
-    ]),
+    el('div', {class:'row-btns'}, rowBtns),
     el('p', {class:'muted', style:{padding:'0', margin:'16px 0 6px'}, text:'Заблокированные:'}),
     blockedWrap,
     btnDelete
+  ]));
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.body.appendChild(overlay);
+}
+
+/* ======== АДМИН-ПАНЕЛЬ ======== */
+async function openAdminPanel(){
+  const overlay = el('div', {class:'overlay'});
+  const close = () => overlay.remove();
+  const listWrap = el('div', {class:'member-list', style:{maxHeight:'60vh'}});
+  const search = el('input', {type:'text', placeholder:'Поиск по имени'});
+
+  async function loadList(){
+    clear(listWrap);
+    try {
+      const d = await api('/api/admin/users');
+      const q = (search.value || '').toLowerCase();
+      const list = (d.users || []).filter(u => !q || u.username.toLowerCase().includes(q));
+      if (!list.length){
+        listWrap.appendChild(el('div', {class:'muted', text:'Никого'}));
+        return;
+      }
+      for (const u of list){
+        const row = el('div', {class:'user', style:{cursor:'default', alignItems:'flex-start', flexDirection:'column', gap:'6px'}}, [
+          el('div', {style:{display:'flex', alignItems:'center', gap:'10px', width:'100%'}}, [
+            makeAvatar(u, 'small'),
+            el('b', {text: u.username + (u.is_admin ? ' ★' : '')}),
+            el('span', {class:'muted', style:{fontSize:'11px', marginLeft:'auto'}, text: u.online ? 'онлайн' : ''})
+          ]),
+          el('div', {style:{fontSize:'12px', color:'var(--muted)'}, text: 'ID ' + u.id + (u.email ? ' · ' + u.email : '')})
+        ]);
+        const btns = el('div', {style:{display:'flex', flexWrap:'wrap', gap:'4px', marginTop:'4px'}});
+        const btnNick = el('button', {type:'button', text:'Ник', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
+        btnNick.addEventListener('click', async () => {
+          const n = prompt('Новый ник для ' + u.username, u.username);
+          if (!n) return;
+          try { await api('/api/admin/set-username', { method:'POST', body: JSON.stringify({ user_id: u.id, username: n.trim() })}); loadList(); }
+          catch(e){ alert(e.message); }
+        });
+        const btnPwd = el('button', {type:'button', text:'Пароль', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
+        btnPwd.addEventListener('click', async () => {
+          const p = prompt('Новый пароль (мин 4)');
+          if (!p) return;
+          try { await api('/api/admin/set-password', { method:'POST', body: JSON.stringify({ user_id: u.id, password: p })}); alert('Пароль сменён'); }
+          catch(e){ alert(e.message); }
+        });
+        const btnAva = el('button', {type:'button', text:'Аватар', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
+        btnAva.addEventListener('click', () => {
+          const inp = document.createElement('input');
+          inp.type = 'file'; inp.accept = 'image/*';
+          inp.onchange = () => {
+            const f = inp.files && inp.files[0];
+            if (!f) return;
+            const r = new FileReader();
+            r.onload = async () => {
+              try { await api('/api/admin/set-avatar', { method:'POST', body: JSON.stringify({ user_id: u.id, avatar: String(r.result) })}); loadList(); }
+              catch(e){ alert(e.message); }
+            };
+            r.readAsDataURL(f);
+          };
+          inp.click();
+        });
+        const btnDel = el('button', {type:'button', text:'Удалить', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--red)', background:'var(--red)', color:'#fff'}});
+        btnDel.addEventListener('click', async () => {
+          if (!confirm('Удалить ' + u.username + '? Все его сообщения исчезнут.')) return;
+          try { await api('/api/admin/delete-user', { method:'POST', body: JSON.stringify({ user_id: u.id })}); loadList(); }
+          catch(e){ alert(e.message); }
+        });
+        btns.appendChild(btnNick); btns.appendChild(btnPwd); btns.appendChild(btnAva); btns.appendChild(btnDel);
+        row.appendChild(btns);
+        listWrap.appendChild(row);
+      }
+    } catch(e){
+      listWrap.appendChild(el('div', {class:'muted', text:'Ошибка: ' + e.message}));
+    }
+  }
+
+  search.addEventListener('input', loadList);
+  loadList();
+
+  overlay.appendChild(el('div', {class:'modal', style:{maxWidth:'520px'}}, [
+    el('h3', {text:'⚙ Управление пользователями'}),
+    search,
+    listWrap,
+    el('div', {class:'row-btns'}, [
+      el('button', {type:'button', text:'Закрыть', on:{click: close}})
+    ])
   ]));
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.body.appendChild(overlay);
@@ -1229,6 +1320,7 @@ async function openCreateGroupModal(){
   try {
     const d = await api('/api/users');
     for (const u of (d.users || [])){
+      if (u.username === 'admin_bot') continue;
       const cb = el('input', {type:'checkbox', value: u.id});
       const label = el('label', {}, [cb, makeAvatar(u, 'small'), el('span', {text: u.username})]);
       listWrap.appendChild(label);
@@ -1290,6 +1382,7 @@ function newPc(){
 
 async function startCall(){
   if (!state.peer) return alert('Звонки только с людьми');
+  if (state.peer.username === 'admin_bot') return alert('Боту звонить нельзя');
   if (call.active) return alert('Звонок уже идёт');
   if (!canCall()) return alert('Этот браузер не поддерживает звонки');
   offerHandled = false;
@@ -1432,7 +1525,7 @@ function hideCallModal(){ if (call.modal){ call.modal.remove(); call.modal = nul
   try {
     const d = await api('/api/me');
     if (d.user){
-      state.me = { id: d.user.id, username: d.user.username, avatar: d.user.avatar || '', email: d.user.email || '' };
+      state.me = { id: d.user.id, username: d.user.username, avatar: d.user.avatar || '', email: d.user.email || '', is_admin: !!d.user.is_admin };
       await renderApp();
     } else {
       renderAuth();
