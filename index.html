@@ -1402,6 +1402,7 @@ async function startCall(){
 
 setInterval(async () => {
   if (!state.me || call.active) return;
+  if (document.hidden) return;
   try {
     const r = await fetch('/api/call/incoming', { credentials:'same-origin' });
     const d = await r.json();
