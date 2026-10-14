@@ -647,7 +647,8 @@ async function renderApp(){
       ])
     ])
   ]);
-  root.appendChild(appEl);  if (state.me.is_admin){
+  root.appendChild(appEl);
+  if (state.me.is_admin){
     const adminBtn = el('button', {
       type: 'button',
       text: '⚙',
