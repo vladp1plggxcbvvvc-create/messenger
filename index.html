@@ -1254,7 +1254,7 @@ function openProfileModal(){
 async function openAdminPanel(){
   const overlay = el('div', {class:'overlay'});
   const close = () => overlay.remove();
-  const listWrap = el('div', {class:'member-list', style:{maxHeight:'60vh'}});
+   const listWrap = el('div', {class:'member-list', style:{maxHeight:'70vh', fontSize:'15px', padding:'10px'}});
   const search = el('input', {type:'text', placeholder:'Поиск по имени'});
 
   async function loadList(){
