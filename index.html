@@ -649,7 +649,7 @@ async function renderApp(){
   ]);
   root.appendChild(appEl);
   
-  }  if (state.me.is_admin){
+  if (state.me.is_admin){
     const adminBtn = document.createElement('button');
     adminBtn.type = 'button';
     adminBtn.textContent = '⚙';
