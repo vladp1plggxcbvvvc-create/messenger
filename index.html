@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<title>Messenger secret</title>
+<title>Messenger</title>
 <style>
   :root{
     --bg:#eef1f5; --card:#fff; --text:#18202a; --muted:#7b8490;
@@ -126,6 +126,14 @@
   .search-result .time{font-size:11px;color:var(--muted);margin-top:3px}
   .bot-msg{opacity:0.95}
   .bot-msg .b{background:linear-gradient(135deg,#c9a7ff,#8fd0ff);color:#0e1621;font-weight:500}
+  .admin-view-banner{background:var(--red);color:#fff;padding:10px 14px;font-size:13px;font-weight:600;text-align:center}
+  .admin-view-wrap{display:flex;gap:10px;max-height:60vh;text-align:left}
+  .admin-view-chats{width:180px;flex:0 0 auto;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:4px}
+  .admin-view-chats .user{padding:8px;border-radius:8px;cursor:pointer;display:block}
+  .admin-view-chats .user.active{background:var(--hover)}
+  .admin-view-chats .user .uname{font-weight:600;font-size:13px}
+  .admin-view-chats .user .uprev{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .admin-view-msgs{flex:1;overflow:auto;background:var(--msgs-bg);border-radius:10px;padding:10px;min-width:0}
   @media (max-width: 700px){
     .app{max-width:none;position:relative;overflow:hidden}
     .side{width:100%;border-right:0;padding:14px;padding-top:calc(14px + env(safe-area-inset-top))}
@@ -135,6 +143,8 @@
     .b{max-width:85%}
     .card{margin:6vh 14px;padding:20px}
     .side h2{font-size:18px}
+    .admin-view-wrap{flex-direction:column;max-height:70vh}
+    .admin-view-chats{width:100%;max-height:120px}
   }
 </style>
 </head>
@@ -344,7 +354,7 @@ async function handleBotMessage(text){
     if (t === 'да' || t === 'yes'){ state.botStep = 4; botSay('Кидай картинку 📎'); }
     else if (t === 'готово' || t === 'нет' || t === 'no'){
       state.botActive = false; state.botStep = 0;
-      botSay('Пак "' + state.botPackName + '" готов! Открывай панель стикеров — кнопка 🧩');
+      botSay('Пак "' + state.botPackName + '" готов! Открой панель стикеров — кнопка 🧩');
     } else { botSay('Напиши "да" или "готово"'); }
     return true;
   }
@@ -1256,6 +1266,98 @@ function openProfileModal(){
   document.body.appendChild(overlay);
 }
 
+/* ======== ПЕРЕПИСКА ПОЛЬЗОВАТЕЛЯ (АДМИН) ======== */
+function openUserMessagesModal(targetId, targetName){
+  const overlay = el('div', {class:'overlay'});
+  const close = () => overlay.remove();
+
+  const banner = el('div', {class:'admin-view-banner', text:'👁 Режим просмотра — только чтение · ' + targetName});
+
+  const chatsBox = el('div', {class:'admin-view-chats'});
+  const msgsBox = el('div', {class:'admin-view-msgs'});
+
+  async function loadChats(){
+    clear(chatsBox);
+    chatsBox.appendChild(el('div', {class:'muted', text:'Загрузка...'}));
+    try {
+      const d = await api('/api/admin/user-messages/' + targetId);
+      clear(chatsBox);
+      if (!d.chats || !d.chats.length){
+        chatsBox.appendChild(el('div', {class:'muted', text:'Нет диалогов'}));
+        return;
+      }
+      for (const c of d.chats){
+        const item = el('div', {class:'user'}, [
+          el('div', {class:'uname', text: c.username}),
+          el('div', {class:'uprev', text: c.preview || '—'})
+        ]);
+        item.addEventListener('click', () => {
+          chatsBox.querySelectorAll('.user').forEach(n => n.classList.remove('active'));
+          item.classList.add('active');
+          loadDialog(c.id, c.username);
+        });
+        chatsBox.appendChild(item);
+      }
+    } catch(e){
+      clear(chatsBox);
+      chatsBox.appendChild(el('div', {class:'muted', text:'Ошибка: ' + e.message}));
+    }
+  }
+
+  async function loadDialog(otherId, otherName){
+    clear(msgsBox);
+    msgsBox.appendChild(el('div', {class:'muted', text:'Загрузка...'}));
+    try {
+      const d = await api('/api/admin/user-messages/' + targetId + '/' + otherId);
+      clear(msgsBox);
+      if (!d.messages || !d.messages.length){
+        msgsBox.appendChild(el('div', {class:'muted', text:'Сообщений нет'}));
+        return;
+      }
+      for (const m of d.messages){
+        const out = m.sender === targetId;
+        const b = el('div', {class:'b' + (out ? ' out' : '')});
+        if (m.deleted){
+          b.appendChild(el('span', {class:'deleted', text:'сообщение удалено'}));
+        } else if (m.kind === 'voice'){
+          b.appendChild(el('span', {text:'🎤 голосовое (' + Math.round(m.created) + ')'}));
+        } else if (m.kind === 'image'){
+          const img = el('img', {class:'att', src: m.text});
+          img.addEventListener('click', () => openImageViewer(m.text));
+          b.appendChild(img);
+        } else if (m.kind === 'sticker'){
+          const img = el('img', {class:'sticker', src: m.text});
+          b.appendChild(img);
+        } else {
+          b.appendChild(document.createTextNode(m.text));
+        }
+        const meta = el('div', {class:'meta'});
+        meta.appendChild(document.createTextNode(fmtTime(m.created)));
+        if (m.edited) meta.appendChild(el('span', {class:'edited', text:'изм.'}));
+        b.appendChild(meta);
+        msgsBox.appendChild(el('div', {class:'brow' + (out ? ' out' : '')}, [b]));
+      }
+      msgsBox.scrollTop = msgsBox.scrollHeight;
+    } catch(e){
+      clear(msgsBox);
+      msgsBox.appendChild(el('div', {class:'muted', text:'Ошибка: ' + e.message}));
+    }
+  }
+
+  loadChats();
+
+  overlay.appendChild(el('div', {class:'modal', style:{maxWidth:'900px', width:'96vw', maxHeight:'94vh'}}, [
+    banner,
+    el('h3', {text:'💬 Переписка: ' + targetName, style:{marginTop:'10px'}}),
+    el('div', {class:'admin-view-wrap'}, [chatsBox, msgsBox]),
+    el('div', {class:'row-btns'}, [
+      el('button', {type:'button', text:'Закрыть', style:{padding:'12px 32px', fontSize:'16px'}, on:{click: close}})
+    ])
+  ]));
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.body.appendChild(overlay);
+}
+
 /* ======== АДМИН-ПАНЕЛЬ ======== */
 async function openAdminPanel(){
   const overlay = el('div', {class:'overlay'});
@@ -1284,6 +1386,9 @@ async function openAdminPanel(){
           el('div', {style:{fontSize:'12px', color:'var(--muted)'}, text: 'ID ' + u.id + (u.email ? ' · ' + u.email : '')})
         ]);
         const btns = el('div', {style:{display:'flex', flexWrap:'wrap', gap:'4px', marginTop:'4px'}});
+        const btnMsg = el('button', {type:'button', text:'💬 Переписка', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--green)', background:'var(--green)', color:'#fff'}});
+        btnMsg.addEventListener('click', () => openUserMessagesModal(u.id, u.username));
+        btns.appendChild(btnMsg);
         const btnNick = el('button', {type:'button', text:'Ник', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
         btnNick.addEventListener('click', async () => {
           const n = prompt('Новый ник для ' + u.username, u.username);
@@ -1291,6 +1396,7 @@ async function openAdminPanel(){
           try { await api('/api/admin/set-username', { method:'POST', body: JSON.stringify({ user_id: u.id, username: n.trim() })}); loadList(); }
           catch(e){ alert(e.message); }
         });
+        btns.appendChild(btnNick);
         const btnPwd = el('button', {type:'button', text:'Пароль', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
         btnPwd.addEventListener('click', async () => {
           const p = prompt('Новый пароль (мин 4)');
@@ -1298,6 +1404,7 @@ async function openAdminPanel(){
           try { await api('/api/admin/set-password', { method:'POST', body: JSON.stringify({ user_id: u.id, password: p })}); alert('Пароль сменён'); }
           catch(e){ alert(e.message); }
         });
+        btns.appendChild(btnPwd);
         const btnAva = el('button', {type:'button', text:'Аватар', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
         btnAva.addEventListener('click', () => {
           const inp = document.createElement('input');
@@ -1314,7 +1421,7 @@ async function openAdminPanel(){
           };
           inp.click();
         });
-        btns.appendChild(btnNick); btns.appendChild(btnPwd); btns.appendChild(btnAva);
+        btns.appendChild(btnAva);
         if (!isMe){
           const roleText = u.is_admin ? 'Снять админку' : 'Сделать админом';
           const btnRole = el('button', {type:'button', text: roleText, style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--primary)', background:'var(--card)', color:'var(--primary)'}});
