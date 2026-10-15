@@ -738,6 +738,75 @@ def admin_unblock_user():
     con.commit(); cur.close(); con.close()
     return jsonify(ok=True)
 
+@app.get("/api/admin/user-messages/<int:uid>")
+@admin_only
+def admin_user_messages_list(uid):
+    con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT id, username FROM users WHERE id=%s", (uid,))
+    target = cur.fetchone()
+    if not target:
+        cur.close(); con.close()
+        return jsonify(error="Нет такого пользователя"), 404
+    cur.execute("""
+        SELECT
+          CASE WHEN sender=%s THEN receiver ELSE sender END AS other_id,
+          MAX(created) AS last_created
+        FROM messages
+        WHERE sender=%s OR receiver=%s
+        GROUP BY other_id
+        ORDER BY last_created DESC
+    """, (uid, uid, uid))
+    rows = cur.fetchall()
+    out = []
+    for r in rows:
+        other_id = r["other_id"]
+        cur.execute("SELECT id, username, avatar FROM users WHERE id=%s", (other_id,))
+        u = cur.fetchone()
+        if not u:
+            continue
+        cur.execute("""
+            SELECT text, kind, created FROM messages
+            WHERE (sender=%s AND receiver=%s) OR (sender=%s AND receiver=%s)
+            ORDER BY id DESC LIMIT 1
+        """, (uid, other_id, other_id, uid))
+        last = cur.fetchone()
+        preview = ""
+        if last:
+            if last["kind"] == "voice":
+                preview = "🎤 голосовое"
+            elif last["kind"] == "image":
+                preview = "🖼 картинка"
+            elif last["kind"] == "sticker":
+                preview = "🧩 стикер"
+            else:
+                preview = (last["text"] or "")[:60]
+        out.append({
+            "id": u["id"],
+            "username": u["username"],
+            "avatar": u["avatar"] or "",
+            "last_created": r["last_created"] or 0,
+            "preview": preview
+        })
+    cur.close(); con.close()
+    return jsonify(target={"id": target["id"], "username": target["username"]}, chats=out)
+
+@app.get("/api/admin/user-messages/<int:uid>/<int:other_id>")
+@admin_only
+def admin_user_messages_dialog(uid, other_id):
+    con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT m.id, m.sender, m.receiver, m.text, m.kind, m.created, m.deleted, m.edited,
+               r.text AS reply_text, ru.username AS reply_name
+        FROM messages m
+        LEFT JOIN messages r ON r.id = m.reply_to
+        LEFT JOIN users ru ON ru.id = r.sender
+        WHERE (m.sender=%s AND m.receiver=%s) OR (m.sender=%s AND m.receiver=%s)
+        ORDER BY m.id
+    """, (uid, other_id, other_id, uid))
+    rows = cur.fetchall()
+    cur.close(); con.close()
+    return jsonify(messages=[dict(r) for r in rows])
+
 # ========== СТИКЕР-ПАКИ ==========
 
 @app.get("/api/sticker-packs")
