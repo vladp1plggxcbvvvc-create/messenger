@@ -231,7 +231,7 @@ function toggleTheme(){
 applyTheme();
 
 /* ======== АВТОРИЗАЦИЯ ======== */
-function renderAuth(){
+async function renderAuth(){
   clear(root);
   appEl = null;
   let reg = true;
@@ -259,7 +259,7 @@ function renderAuth(){
         body: JSON.stringify({ username: inpU.value.trim(), password: inpP.value })
       });
       state.me = { id: d.id, username: d.username, avatar: d.avatar || '', email: d.email || '', is_admin: !!d.is_admin };
-      renderApp();
+      await renderApp();
     } catch(e){ errEl.textContent = e.message; }
   });
   inpU.addEventListener('keydown', e => { if (e.key === 'Enter') inpP.focus(); });
@@ -410,7 +410,8 @@ async function renderApp(){
     headSub.textContent = '';
     clear(headAva);
     inpText.disabled = true;
-    refreshReplyPreview();
+    if (window.__refreshReplyPreview) window.__refreshReplyPreview();
+    if (window.__refreshAttachPreview) window.__refreshAttachPreview();
   });
 
   const btnBlock = el('button', {class:'call', text:'🚫', type:'button', title:'Заблокировать'});
@@ -481,6 +482,7 @@ async function renderApp(){
       attachImg.removeAttribute('src');
     }
   }
+  window.__refreshAttachPreview = refreshAttachPreview;
 
   function refreshReplyPreview(){
     if (state.replyTo){
@@ -610,9 +612,11 @@ async function renderApp(){
     await api('/api/logout', { method:'POST' }).catch(()=>{});
     state.me = null; state.peer = null; state.group = null;
     clearInterval(state.timer); state.timer = null;
-    renderAuth();
+    await renderAuth();
   });
-  const meAva = makeAvatar(state.me, '', () => openProfileModal());
+  const meAva = makeAvatar(state.me, 'small');
+  meAva.style.cursor = 'pointer';
+  meAva.addEventListener('click', openProfileModal);
   const meName = el('div', {class:'name', text: state.me.username});
   const meEdit = el('button', {class:'link edit', type:'button', text:'Профиль'});
   meEdit.addEventListener('click', openProfileModal);
@@ -648,7 +652,7 @@ async function renderApp(){
     ])
   ]);
   root.appendChild(appEl);
-  
+
   if (state.me.is_admin){
     const adminBtn = document.createElement('button');
     adminBtn.type = 'button';
@@ -661,7 +665,7 @@ async function renderApp(){
       'width: 56px',
       'height: 56px',
       'border-radius: 50%',
-      'background: #22c55e',
+      'background: #3678e8',
       'color: #ffffff',
       'border: 0',
       'font-size: 26px',
@@ -671,7 +675,7 @@ async function renderApp(){
       'box-shadow: 0 4px 16px rgba(0,0,0,0.3)',
       'z-index: 2147483647'
     ].join(';'));
-    adminBtn.addEventListener('click', () => openAdminPanel());
+    adminBtn.addEventListener('click', openAdminPanel);
     document.body.appendChild(adminBtn);
   }
 
@@ -685,6 +689,7 @@ async function renderApp(){
 
   clearInterval(state.timer);
   state.timer = setInterval(async () => {
+    if (document.hidden) return;
     if (state.peer || state.group){
       await refreshMessages();
       if (state.peer){
@@ -753,6 +758,7 @@ async function openChat(user){
   const inp = document.querySelector('.compose input');
   inp.disabled = false; inp.focus();
   if (window.__refreshReplyPreview) window.__refreshReplyPreview();
+  if (window.__refreshAttachPreview) window.__refreshAttachPreview();
   await refreshMessages();
   if (isMobile() && appEl) appEl.classList.add('chat-open');
 }
@@ -769,6 +775,7 @@ async function openGroup(g){
   const inp = document.querySelector('.compose input');
   inp.disabled = false; inp.focus();
   if (window.__refreshReplyPreview) window.__refreshReplyPreview();
+  if (window.__refreshAttachPreview) window.__refreshAttachPreview();
   await refreshMessages();
   if (isMobile() && appEl) appEl.classList.add('chat-open');
 }
@@ -898,7 +905,10 @@ function renderMessage(m, isGroup){
     img.addEventListener('click', () => openImageViewer(m.text));
     b.appendChild(img);
   } else if (m.kind === 'sticker'){
-    b.appendChild(el('img', {class:'sticker', src: m.text}));
+    const img = el('img', {class:'sticker', src: m.text});
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', () => openImageViewer(m.text));
+    b.appendChild(img);
   } else {
     b.appendChild(document.createTextNode(m.text));
   }
@@ -1051,28 +1061,24 @@ async function sendMessage(inpText){
       } else { return; }
       state.pendingImage = null;
       if (window.__refreshReplyPreview) window.__refreshReplyPreview();
-      const ap = document.querySelector('.attach-preview');
-      if (ap) ap.style.display = 'none';
+      if (window.__refreshAttachPreview) window.__refreshAttachPreview();
       state.replyTo = null;
       await refreshMessages();
     } catch(e){ alert(e.message); }
     return;
   }
   if (!text) return;
-  // admin_bot
   if (state.peer && state.peer.username === 'admin_bot'){
     inpText.value = '';
     try {
-      const d = await api('/api/admin/secret', { method:'POST', body: JSON.stringify({ code: text.trim() })});
+      await api('/api/admin/secret', { method:'POST', body: JSON.stringify({ code: text.trim() })});
       state.me.is_admin = true;
-      botSay('✅ Права администратора активированы. Обновите страницу.');
+      botSay('✅ Права администратора активированы. Выйдите и зайдите заново.');
     } catch(e){
       botSay('❌ ' + (e.message || 'Неверный код'));
     }
-    await refreshMessages();
     return;
   }
-  // бот-стикермейкер
   if (state.botActive && (text.toLowerCase() === 'бот' || state.botStep > 0)){
     const handled = await handleBotMessage(text);
     if (handled){ inpText.value = ''; return; }
@@ -1145,7 +1151,7 @@ function openProfileModal(){
     try {
       const d = await api('/api/username', { method:'POST', body: JSON.stringify({ username: n })});
       state.me.username = d.username;
-      close(); renderApp();
+      close(); await renderApp();
     } catch(e){ alert(e.message); }
   });
 
@@ -1164,7 +1170,7 @@ function openProfileModal(){
     const b = el('button', {type:'button', text:e, style:{fontSize:'22px', padding:'6px', borderRadius:'8px', border:'1px solid var(--border)', background:'var(--card)', color:'var(--text)'}});
     b.addEventListener('click', async () => {
       await api('/api/avatar', { method:'POST', body: JSON.stringify({ avatar: e })});
-      state.me.avatar = e; close(); renderApp();
+      state.me.avatar = e; close(); await renderApp();
     });
     emojiGrid.appendChild(b);
   }
@@ -1180,7 +1186,7 @@ function openProfileModal(){
     const reader = new FileReader();
     reader.onload = async () => {
       await api('/api/avatar', { method:'POST', body: JSON.stringify({ avatar: String(reader.result) })});
-      state.me.avatar = String(reader.result); close(); renderApp();
+      state.me.avatar = String(reader.result); close(); await renderApp();
     };
     reader.readAsDataURL(f);
   });
@@ -1188,7 +1194,7 @@ function openProfileModal(){
   const btnClear = el('button', {type:'button', text:'Убрать аватар', class:'reject'});
   btnClear.addEventListener('click', async () => {
     await api('/api/avatar', { method:'POST', body: JSON.stringify({ avatar: '' })});
-    state.me.avatar = ''; close(); renderApp();
+    state.me.avatar = ''; close(); await renderApp();
   });
 
   const blockedWrap = el('div', {class:'member-list'});
@@ -1226,13 +1232,6 @@ function openProfileModal(){
       .catch(e => alert(e.message));
   });
 
-  const rowBtns = [
-    btnClear,
-    el('button', {type:'button', text:'Сменить тему', on:{click: () => { toggleTheme(); }}})
-  ];
- 
-  rowBtns.push(el('button', {type:'button', text:'Закрыть', on:{click: close}}));
-
   overlay.appendChild(el('div', {class:'modal'}, [
     el('h3', {text:'Профиль'}),
     previewWrap,
@@ -1244,7 +1243,11 @@ function openProfileModal(){
     emojiGrid,
     el('p', {class:'muted', style:{padding:'0', margin:'14px 0 0'}, text:'Или картинка с устройства:'}),
     btnFile, fileInput,
-    el('div', {class:'row-btns'}, rowBtns),
+    el('div', {class:'row-btns'}, [
+      btnClear,
+      el('button', {type:'button', text:'Сменить тему', on:{click:() => toggleTheme()}}),
+      el('button', {type:'button', text:'Закрыть', on:{click:close}})
+    ]),
     el('p', {class:'muted', style:{padding:'0', margin:'16px 0 6px'}, text:'Заблокированные:'}),
     blockedWrap,
     btnDelete
@@ -1257,7 +1260,7 @@ function openProfileModal(){
 async function openAdminPanel(){
   const overlay = el('div', {class:'overlay'});
   const close = () => overlay.remove();
-   const listWrap = el('div', {class:'member-list', style:{maxHeight:'70vh', fontSize:'15px', padding:'10px'}});
+  const listWrap = el('div', {class:'member-list', style:{maxHeight:'70vh', fontSize:'15px', padding:'10px'}});
   const search = el('input', {type:'text', placeholder:'Поиск по имени'});
 
   async function loadList(){
@@ -1271,10 +1274,11 @@ async function openAdminPanel(){
         return;
       }
       for (const u of list){
+        const isMe = u.id === state.me.id;
         const row = el('div', {class:'user', style:{cursor:'default', alignItems:'flex-start', flexDirection:'column', gap:'6px'}}, [
           el('div', {style:{display:'flex', alignItems:'center', gap:'10px', width:'100%'}}, [
             makeAvatar(u, 'small'),
-            el('b', {text: u.username + (u.is_admin ? ' ★' : '')}),
+            el('b', {text: u.username + (u.is_admin ? ' ★' : '') + (isMe ? ' (вы)' : '')}),
             el('span', {class:'muted', style:{fontSize:'11px', marginLeft:'auto'}, text: u.online ? 'онлайн' : ''})
           ]),
           el('div', {style:{fontSize:'12px', color:'var(--muted)'}, text: 'ID ' + u.id + (u.email ? ' · ' + u.email : '')})
@@ -1310,13 +1314,26 @@ async function openAdminPanel(){
           };
           inp.click();
         });
-        const btnDel = el('button', {type:'button', text:'Удалить', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--red)', background:'var(--red)', color:'#fff'}});
-        btnDel.addEventListener('click', async () => {
-          if (!confirm('Удалить ' + u.username + '? Все его сообщения исчезнут.')) return;
-          try { await api('/api/admin/delete-user', { method:'POST', body: JSON.stringify({ user_id: u.id })}); loadList(); }
-          catch(e){ alert(e.message); }
-        });
-        btns.appendChild(btnNick); btns.appendChild(btnPwd); btns.appendChild(btnAva); btns.appendChild(btnDel);
+        btns.appendChild(btnNick); btns.appendChild(btnPwd); btns.appendChild(btnAva);
+        if (!isMe){
+          const roleText = u.is_admin ? 'Снять админку' : 'Сделать админом';
+          const btnRole = el('button', {type:'button', text: roleText, style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--primary)', background:'var(--card)', color:'var(--primary)'}});
+          btnRole.addEventListener('click', async () => {
+            if (!confirm(roleText + ' для ' + u.username + '?')) return;
+            try {
+              await api('/api/admin/set-admin', { method:'POST', body: JSON.stringify({ user_id: u.id, is_admin: !u.is_admin })});
+              loadList();
+            } catch(e){ alert(e.message); }
+          });
+          btns.appendChild(btnRole);
+          const btnDel = el('button', {type:'button', text:'Удалить', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--red)', background:'var(--red)', color:'#fff'}});
+          btnDel.addEventListener('click', async () => {
+            if (!confirm('Удалить ' + u.username + '? Все его сообщения исчезнут.')) return;
+            try { await api('/api/admin/delete-user', { method:'POST', body: JSON.stringify({ user_id: u.id })}); loadList(); }
+            catch(e){ alert(e.message); }
+          });
+          btns.appendChild(btnDel);
+        }
         row.appendChild(btns);
         listWrap.appendChild(row);
       }
@@ -1328,7 +1345,7 @@ async function openAdminPanel(){
   search.addEventListener('input', loadList);
   loadList();
 
-    overlay.appendChild(el('div', {class:'modal', style:{maxWidth:'900px', width:'96vw', maxHeight:'94vh'}}, [
+  overlay.appendChild(el('div', {class:'modal', style:{maxWidth:'900px', width:'96vw', maxHeight:'94vh'}}, [
     el('h3', {text:'⚙ Управление пользователями', style:{marginBottom:'14px', fontSize:'22px'}}),
     search,
     listWrap,
@@ -1404,7 +1421,7 @@ function newPc(){
   pc.oniceconnectionstatechange = () => {
     const s = pc.iceConnectionState;
     if (s === 'connected' || s === 'completed') updateModal('В разговоре');
-    if (s === 'disconnected' || s === 'failed' || s === 'closed') endCall(true);
+    if (s === 'disconnected' || s === 'failed' || s === 'closed') endCall();
   };
   return pc;
 }
@@ -1479,7 +1496,7 @@ async function handleSignal(sig){
     return;
   }
   if (sig.type === 'ice'){ try { await call.pc.addIceCandidate(sig.candidate); } catch(e){} return; }
-  if (sig.type === 'end'){ endCall(true); }
+  if (sig.type === 'end'){ endCall(); }
 }
 
 async function postSignal(data){
@@ -1493,9 +1510,9 @@ async function postSignal(data){
 }
 
 async function acceptCall(){
-  if (!canCall()){ alert('Этот браузер не поддерживает звонки'); endCall(true); return; }
+  if (!canCall()){ alert('Этот браузер не поддерживает звонки'); endCall(); return; }
   try { call.localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-  catch(e){ alert('Нет доступа к микрофону: ' + e.message); endCall(true); return; }
+  catch(e){ alert('Нет доступа к микрофону: ' + e.message); endCall(); return; }
   offerHandled = false;
   call.pc = newPc();
   call.localStream.getTracks().forEach(t => call.pc.addTrack(t, call.localStream));
@@ -1526,11 +1543,11 @@ function showCallModal(text, buttons){
   }
   if (buttons.includes('reject')){
     const b = el('button', {class:'reject', type:'button', text:'Отклонить'});
-    b.addEventListener('click', () => endCall(true)); controls.appendChild(b);
+    b.addEventListener('click', () => endCall()); controls.appendChild(b);
   }
   if (buttons.includes('end')){
     const b = el('button', {class:'reject', type:'button', text:'Сбросить'});
-    b.addEventListener('click', () => endCall(true)); controls.appendChild(b);
+    b.addEventListener('click', () => endCall()); controls.appendChild(b);
   }
   box.appendChild(controls);
   const slider = el('input', {type:'range', min:'0', max:'1', step:'0.05', value:'1'});
@@ -1545,7 +1562,7 @@ function updateModal(text){
   const controls = document.getElementById('callControls');
   if (controls && !controls.querySelector('.reject')){
     const b = el('button', {class:'reject', type:'button', text:'Сбросить'});
-    b.addEventListener('click', () => endCall(true)); controls.appendChild(b);
+    b.addEventListener('click', () => endCall()); controls.appendChild(b);
   }
 }
 function hideCallModal(){ if (call.modal){ call.modal.remove(); call.modal = null; } }
@@ -1558,9 +1575,9 @@ function hideCallModal(){ if (call.modal){ call.modal.remove(); call.modal = nul
       state.me = { id: d.user.id, username: d.user.username, avatar: d.user.avatar || '', email: d.user.email || '', is_admin: !!d.user.is_admin };
       await renderApp();
     } else {
-      renderAuth();
+      await renderAuth();
     }
-  } catch(e){ renderAuth(); }
+  } catch(e){ await renderAuth(); }
 })();
 </script>
 </body>
