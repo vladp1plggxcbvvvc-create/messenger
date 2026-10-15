@@ -31,7 +31,7 @@ def init():
     );""")
     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT DEFAULT ''")
     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
-    cur.execute("INSERT INTO users(username,password,avatar,is_admin) VALUES('admin_bot','','🤖',FALSE) ON CONFLICT (username) DO NOTHING")
+    cur.execute("INSERT INTO users(username,password,avatar,is_admin) VALUES('admin_bot','!','🤖',FALSE) ON CONFLICT (username) DO NOTHING")
     cur.execute("""
     CREATE TABLE IF NOT EXISTS messages(
       id SERIAL PRIMARY KEY,
@@ -168,9 +168,11 @@ def register():
 @app.post("/api/login")
 def login():
     d = request.json or {}
+    name = d.get("username", "").strip()
+    if name == 'admin_bot':
+        return jsonify(error="Неверное имя или пароль."), 401
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM users WHERE username=%s AND password=%s",
-                (d.get("username", "").strip(), pw(d.get("password", ""))))
+    cur.execute("SELECT * FROM users WHERE username=%s AND password=%s", (name, pw(d.get("password", ""))))
     row = cur.fetchone()
     cur.close(); con.close()
     if not row:
@@ -276,7 +278,6 @@ def users():
     for r in rows:
         d = dict(r); d["online"] = (now - (r["last_seen"] or 0)) < 120
         out.append(d)
-    # добавить admin_bot всегда
     con = db(); cur = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT id,username,avatar,last_seen FROM users WHERE username='admin_bot'")
     bot = cur.fetchone()
@@ -671,6 +672,21 @@ def admin_set_password():
     con.commit(); cur.close(); con.close()
     return jsonify(ok=True)
 
+@app.post("/api/admin/set-admin")
+@admin_only
+def admin_set_admin():
+    me = session.get("uid")
+    d = request.json or {}
+    try: uid = int(d.get("user_id", 0))
+    except: return jsonify(error="Плохой user_id"), 400
+    if not uid or uid == me:
+        return jsonify(error="Нельзя менять свою роль"), 400
+    val = bool(d.get("is_admin", False))
+    con = db(); cur = con.cursor()
+    cur.execute("UPDATE users SET is_admin=%s WHERE id=%s", (val, uid))
+    con.commit(); cur.close(); con.close()
+    return jsonify(ok=True)
+
 @app.post("/api/admin/delete-user")
 @admin_only
 def admin_delete_user():
@@ -790,6 +806,11 @@ def post_signal():
     if not room or data is None: return jsonify(error="Нет room или data"), 400
     signals.setdefault(room, [])
     signals[room].append({"data": data, "ts": time.time()})
+    now = time.time()
+    for k in list(signals.keys()):
+        signals[k] = [x for x in signals[k] if now - x.get("ts", 0) < 120]
+        if not signals[k]:
+            del signals[k]
     return jsonify(ok=True)
 
 @app.get("/api/signal/<room>")
