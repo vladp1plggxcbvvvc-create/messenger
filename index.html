@@ -1508,17 +1508,34 @@ async function openCreateGroupModal(){
 const call = { active:false, pc:null, localStream:null, remoteAudio:null, room:null, role:null, pollTimer:null, modal:null };
 let offerHandled = false;
 
+/* Буфер ICE-кандидатов: если кандидат пришёл раньше remoteDescription,
+   он ждёт здесь, а не теряется. */
+let pendingIce = [];
+async function flushIce(){
+  if (!call.pc || !call.pc.remoteDescription) return;
+  const list = pendingIce;
+  pendingIce = [];
+  for (const c of list){
+    try { await call.pc.addIceCandidate(c); } catch(e){ console.warn('addIceCandidate', e); }
+  }
+}
+
 function canCall(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.RTCPeerConnection); }
+
+/* Только бесплатные STUN. Для звонков между сильно разными сетями
+   (мобильный интернет, строгий NAT) может понадобиться TURN-сервер. */
 function getIceServers(){
   return [
     { urls:'stun:stun.l.google.com:19302' },
     { urls:'stun:stun1.l.google.com:19302' },
-    { urls:'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject' },
-    { urls:'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject' }
+    { urls:'stun:stun2.l.google.com:19302' },
+    { urls:'stun:stun.cloudflare.com:3478' }
   ];
 }
 function newPc(){
   const pc = new RTCPeerConnection({ iceServers: getIceServers() });
+  let dropTimer = null;
+  let wasConnected = false;
   pc.onicecandidate = (ev) => { if (ev.candidate) postSignal({ type:'ice', candidate: ev.candidate.toJSON() }); };
   pc.ontrack = (ev) => {
     if (!call.remoteAudio){ call.remoteAudio = new Audio(); call.remoteAudio.autoplay = true; }
@@ -1527,8 +1544,22 @@ function newPc(){
   };
   pc.oniceconnectionstatechange = () => {
     const s = pc.iceConnectionState;
-    if (s === 'connected' || s === 'completed') updateModal('В разговоре');
-    if (s === 'disconnected' || s === 'failed' || s === 'closed') endCall();
+    console.log('ice state:', s);
+    clearTimeout(dropTimer);
+    if (s === 'connected' || s === 'completed'){
+      wasConnected = true;
+      updateModal('В разговоре');
+    } else if (s === 'disconnected'){
+      // кратковременный обрыв — ждём 6 секунд, вдруг восстановится
+      dropTimer = setTimeout(() => {
+        if (pc.iceConnectionState === 'disconnected') endCall();
+      }, 6000);
+    } else if (s === 'failed'){
+      if (!wasConnected) alert('Не удалось соединиться: сеть не пропускает прямое соединение.');
+      endCall();
+    } else if (s === 'closed'){
+      endCall();
+    }
   };
   return pc;
 }
@@ -1539,6 +1570,7 @@ async function startCall(){
   if (call.active) return alert('Звонок уже идёт');
   if (!canCall()) return alert('Этот браузер не поддерживает звонки');
   offerHandled = false;
+  pendingIce = [];
   call.room = Math.random().toString(36).substring(2, 10);
   call.role = 'caller'; call.active = true;
   try { call.localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
@@ -1561,6 +1593,7 @@ setInterval(async () => {
     const d = await r.json();
     if (d.invite){
       call.room = d.invite.room; call.role = 'callee'; offerHandled = false;
+      pendingIce = [];
       showCallModal('Входящий звонок от ' + d.invite.fromName, ['accept', 'reject']);
     }
   } catch(e){}
@@ -1576,7 +1609,7 @@ function startPolling(){
       const d = await r.json();
       if (!d.items || !d.items.length) return;
       for (const sig of d.items){
-        const key = JSON.stringify(sig).slice(0, 200);
+        const key = JSON.stringify(sig);
         if (seen.has(key)) continue;
         seen.add(key);
         await handleSignal(sig);
@@ -1591,6 +1624,7 @@ async function handleSignal(sig){
     offerHandled = true;
     try {
       await call.pc.setRemoteDescription({ type:'offer', sdp: sig.sdp });
+      await flushIce();
       const ans = await call.pc.createAnswer();
       await call.pc.setLocalDescription(ans);
       await postSignal({ type:'answer', sdp: ans.sdp });
@@ -1599,10 +1633,22 @@ async function handleSignal(sig){
     return;
   }
   if (sig.type === 'answer' && call.role === 'caller'){
-    try { if (call.pc.signalingState !== 'stable') await call.pc.setRemoteDescription({ type:'answer', sdp: sig.sdp }); } catch(e){}
+    try {
+      if (call.pc.signalingState !== 'stable'){
+        await call.pc.setRemoteDescription({ type:'answer', sdp: sig.sdp });
+        await flushIce();
+      }
+    } catch(e){ console.error('answer', e); }
     return;
   }
-  if (sig.type === 'ice'){ try { await call.pc.addIceCandidate(sig.candidate); } catch(e){} return; }
+  if (sig.type === 'ice'){
+    if (call.pc.remoteDescription){
+      try { await call.pc.addIceCandidate(sig.candidate); } catch(e){ console.warn('ice', e); }
+    } else {
+      pendingIce.push(sig.candidate);
+    }
+    return;
+  }
   if (sig.type === 'end'){ endCall(); }
 }
 
@@ -1636,6 +1682,7 @@ async function endCall(){
   if (call.remoteAudio){ call.remoteAudio.pause(); call.remoteAudio = null; }
   call.active = false; call.room = null; call.role = null;
   offerHandled = false;
+  pendingIce = [];
   hideCallModal();
 }
 
