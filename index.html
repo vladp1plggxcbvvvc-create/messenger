@@ -1,1737 +1,1354 @@
-<!doctype html>
-<html lang="ru" data-theme="light">
+<!DOCTYPE html>
+<html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Messenger</title>
 <style>
   :root{
-    --bg:#eef1f5; --card:#fff; --text:#18202a; --muted:#7b8490;
-    --border:#e5e8ec; --border2:#dce1e7; --msg:#e3e6ea; --msg-out:#c9ccd1;
-    --msgs-bg:#f7f9fb; --input:#fff; --hover:#edf3ff; --me-bar:#f4f7fc;
-    --primary:#3678e8; --green:#34a853; --red:#ea4335;
+    --bg:#0f1115; --bg2:#151922; --bg3:#1c2230; --line:#242c3d;
+    --txt:#e6e9ef; --dim:#8b93a7; --acc:#4c8dff; --acc2:#6ea8ff;
+    --ok:#3ddc84; --warn:#ffb020; --err:#ff5c5c; --radius:12px;
   }
-  html[data-theme="dark"]{
-    --bg:#0e1621; --card:#17212b; --text:#e9eef5; --muted:#8fa3b8;
-    --border:#243447; --border2:#2b3d52; --msg:#1f2c3a; --msg-out:#2b5278;
-    --msgs-bg:#0e1621; --input:#1f2c3a; --hover:#1e2c3c; --me-bar:#1e2c3c;
-    --primary:#5288c1; --green:#34a853; --red:#ea4335;
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{height:100%; margin:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--txt); overflow:hidden;
+    display:flex; flex-direction:column;
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%}
-  body{margin:0;font:15px system-ui;background:var(--bg);color:var(--text);overscroll-behavior:none}
-  button{font:inherit;cursor:pointer}
-  input{font:inherit}
-  .card{max-width:420px;margin:10vh auto;background:var(--card);padding:28px;border-radius:18px;box-shadow:0 10px 40px #0001}
-  .field{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border2);margin:6px 0;background:var(--input);color:var(--text)}
-  .primary{width:100%;padding:12px;border-radius:10px;border:0;background:var(--primary);color:#fff;margin:6px 0}
-  .link{border:0;background:none;color:var(--primary);padding:0;margin:0}
-  .error{color:#c33;min-height:20px;margin-top:8px}
-  .app{height:100dvh;display:flex;max-width:1100px;margin:auto;background:var(--card)}
-  .side{width:320px;border-right:1px solid var(--border);padding:18px;display:flex;flex-direction:column;min-width:0;background:var(--card)}
-  .side h2{margin:0;font-size:20px}
-  .top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
-  .tabs{display:flex;gap:6px;margin-bottom:10px}
-  .tabs button{flex:1;padding:8px;border:0;background:var(--me-bar);border-radius:10px;font-size:14px;font-weight:600;color:var(--muted)}
-  .tabs button.active{background:var(--primary);color:#fff}
-  .users{flex:1;overflow:auto;margin-top:6px;min-height:0;-webkit-overflow-scrolling:touch}
-  .user{padding:10px;border-radius:10px;cursor:pointer;user-select:none;display:flex;align-items:center;gap:10px;position:relative;color:var(--text)}
-  .user:active{background:var(--hover)}
-  .user.active{background:var(--hover)}
-  .user b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .user .dot{position:absolute;left:33px;bottom:7px;width:11px;height:11px;border-radius:50%;background:#b8c0c8;border:2px solid var(--card)}
-  .user .dot.on{background:#34c759}
-  .user .g-icon{width:32px;height:32px;border-radius:50%;background:#6a5bff33;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto}
-  .avatar{width:36px;height:36px;border-radius:50%;background:var(--border2);display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto;overflow:hidden;background-size:cover;background-position:center}
-  .avatar.small{width:32px;height:32px;font-size:18px}
-  .me-bar{display:flex;align-items:center;gap:10px;padding:10px;background:var(--me-bar);border-radius:12px;margin-bottom:10px}
-  .me-bar .name{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .me-bar .edit{font-size:13px}
-  .chat{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--card)}
-  .head{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:700;display:flex;align-items:center;gap:8px;min-height:56px}
-  .head .row{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
-  .head .col{display:flex;flex-direction:column;min-width:0}
-  .head .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .head .sub{font-size:12px;color:var(--muted);font-weight:400}
-  .head button.back{display:none;border:0;background:none;font-size:22px;padding:0 6px 0 0;cursor:pointer;line-height:1;color:var(--text)}
-  .head button.call{border:0;background:var(--green);color:#fff;border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;flex:0 0 auto}
-  .msgs{flex:1;overflow:auto;padding:16px;background:var(--msgs-bg);min-height:0;-webkit-overflow-scrolling:touch}
-  .brow{display:flex;margin:6px 0}
-  .brow.out{justify-content:flex-end}
-  .b{max-width:80%;padding:8px 12px;border-radius:15px;background:var(--msg);color:var(--text);word-wrap:break-word;white-space:pre-wrap;font-size:15px;line-height:1.35;position:relative;cursor:pointer}
-  .b.out{background:var(--msg-out)}
-  .b .sender{font-size:12px;color:var(--primary);font-weight:600;margin-bottom:3px}
-  .b .reply{font-size:13px;color:var(--muted);border-left:3px solid var(--primary);padding-left:6px;margin-bottom:4px;white-space:normal}
-  .b .reply b{color:var(--primary);display:block;font-size:12px}
-  .b .deleted{font-style:italic;color:var(--muted);font-size:14px}
-  .b .edited{font-size:11px;color:var(--muted);margin-left:4px}
-  .b .meta{font-size:11px;color:var(--muted);margin-top:3px;display:flex;gap:4px;align-items:center;justify-content:flex-end}
-  .b .meta .check{color:#5aa9ff}
-  .b .player{display:flex;align-items:center;gap:8px;margin-top:4px;min-width:180px}
-  .b .player button.play{width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;border:0;font-size:16px;flex:0 0 auto;cursor:pointer;display:flex;align-items:center;justify-content:center}
-  .b .player .bar{flex:1;height:4px;background:var(--border2);border-radius:2px;position:relative;min-width:80px}
-  .b .player .bar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--primary);border-radius:2px;width:0%;transition:width .1s linear}
-  .b .player .time{font-size:12px;color:var(--muted);min-width:36px;text-align:right}
-  .b img.att{max-width:100%;max-height:340px;border-radius:10px;margin-top:2px;display:block;cursor:pointer}
-  .b img.sticker{max-width:140px;max-height:140px;display:block;margin-top:2px}
-  .b .reacts{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
-  .b .reacts span{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1px 6px;font-size:12px;cursor:pointer}
-  .b .reacts span:hover{background:var(--hover)}
-  .b .react-float{position:absolute;right:8px;top:-8px;font-size:22px;pointer-events:none;animation:floatUp .9s ease-out forwards}
-  @keyframes floatUp{
-    0%{transform:translateY(0) scale(1);opacity:1}
-    60%{transform:translateY(-30px) scale(1.4);opacity:1}
-    100%{transform:translateY(-60px) scale(0.8);opacity:0}
+  button{font-family:inherit; cursor:pointer}
+  input,textarea{font-family:inherit}
+  .hidden{display:none !important}
+
+  #auth{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(1200px 600px at 50% -10%, #1b2a4a 0%, var(--bg) 60%);
+    z-index:50; padding:16px;
   }
-  .compose-wrap{border-top:1px solid var(--border);background:var(--card)}
-  .reply-preview{padding:8px 12px;background:var(--me-bar);border-left:3px solid var(--primary);display:flex;justify-content:space-between;align-items:center;font-size:13px}
-  .reply-preview .x{border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px}
-  .attach-preview{padding:8px 12px;background:var(--me-bar);display:none;align-items:center;gap:10px;border-top:1px solid var(--border)}
-  .attach-preview img{max-height:80px;border-radius:8px;display:block}
-  .attach-preview .x{border:0;background:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px}
-  .compose{display:flex;padding:10px;gap:8px;align-items:center;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
-  .compose input{flex:1;padding:12px 14px;border:1px solid var(--border2);border-radius:20px;min-width:0;font-size:16px;background:var(--input);color:var(--text)}
-  .compose button.icon{width:42px;height:42px;background:var(--me-bar);color:var(--text);border:0;border-radius:50%;font-size:18px;flex:0 0 auto}
-  .compose button.send{width:46px;height:46px;background:var(--primary);color:#fff;border:0;border-radius:50%;font-size:18px;flex:0 0 auto}
-  .compose button.rec{background:var(--red);color:#fff}
-  .emoji-panel{display:none;padding:8px 10px;background:var(--card);border-top:1px solid var(--border);flex-wrap:wrap;gap:4px;max-height:180px;overflow:auto}
-  .emoji-panel.open{display:flex}
-  .emoji-panel button{background:var(--me-bar);border:0;border-radius:8px;font-size:22px;padding:6px;cursor:pointer;line-height:1}
-  .sticker-panel{display:none;padding:8px 10px;background:var(--card);border-top:1px solid var(--border);flex-wrap:wrap;gap:6px;max-height:200px;overflow:auto}
-  .sticker-panel.open{display:flex}
-  .sticker-panel img{max-width:80px;max-height:80px;border-radius:8px;cursor:pointer}
-  .typing{font-size:12px;color:var(--muted);padding:0 16px 6px;height:18px}
-  .muted{color:var(--muted);padding:10px}
-  .overlay{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
-  .modal{background:var(--card);color:var(--text);border-radius:16px;padding:22px;max-width:440px;width:100%;text-align:center;max-height:88vh;overflow:auto}
-  .modal h3{margin:0 0 12px;font-size:18px}
-  .modal button{padding:10px 20px;margin:6px;border-radius:10px;border:0;cursor:pointer;font-size:15px}
-  .modal .accept{background:var(--green);color:#fff}
-  .modal .reject{background:var(--red);color:#fff}
-  .modal input[type=range]{width:100%;margin-top:12px}
-  .modal input[type=text],.modal input[type=file]{width:100%;padding:10px;border:1px solid var(--border2);border-radius:10px;margin:6px 0;font:inherit;background:var(--input);color:var(--text)}
-  .modal .row-btns{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .react-popup{position:fixed;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:4px 6px;display:flex;gap:2px;box-shadow:0 6px 20px #0004;z-index:1100}
-  .react-popup button{background:none;border:0;font-size:22px;padding:4px 6px;cursor:pointer;border-radius:8px}
-  .ctx-menu{position:fixed;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:4px;box-shadow:0 6px 20px #0004;z-index:1200;min-width:140px}
-  .ctx-menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 12px;border-radius:8px;font-size:14px;cursor:pointer;color:var(--text)}
-  .ctx-menu button:hover{background:var(--hover)}
-  .member-list{max-height:200px;overflow:auto;text-align:left;border:1px solid var(--border);border-radius:10px;padding:6px;margin:8px 0}
-  .member-list label{display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;border-radius:8px}
-  .member-list label:hover{background:var(--hover)}
-  .img-viewer{position:fixed;inset:0;background:#000d;display:flex;align-items:center;justify-content:center;z-index:2000;padding:16px;cursor:pointer}
-  .img-viewer img{max-width:100%;max-height:100%;border-radius:8px}
-  .search-result{padding:10px;border-bottom:1px solid var(--border);cursor:pointer;text-align:left}
-  .search-result:hover{background:var(--hover)}
-  .search-result .time{font-size:11px;color:var(--muted);margin-top:3px}
-  .bot-msg{opacity:0.95}
-  .bot-msg .b{background:linear-gradient(135deg,#c9a7ff,#8fd0ff);color:#0e1621;font-weight:500}
-  .admin-view-banner{background:var(--red);color:#fff;padding:10px 14px;font-size:13px;font-weight:600;text-align:center}
-  .admin-view-wrap{display:flex;gap:10px;max-height:60vh;text-align:left}
-  .admin-view-chats{width:180px;flex:0 0 auto;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:4px}
-  .admin-view-chats .user{padding:8px;border-radius:8px;cursor:pointer;display:block}
-  .admin-view-chats .user.active{background:var(--hover)}
-  .admin-view-chats .user .uname{font-weight:600;font-size:13px}
-  .admin-view-chats .user .uprev{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .admin-view-msgs{flex:1;overflow:auto;background:var(--msgs-bg);border-radius:10px;padding:10px;min-width:0}
-  @media (max-width: 700px){
-    .app{max-width:none;position:relative;overflow:hidden}
-    .side{width:100%;border-right:0;padding:14px;padding-top:calc(14px + env(safe-area-inset-top))}
-    .chat{position:absolute;inset:0;transform:translateX(100%);transition:transform .22s ease;z-index:5;background:var(--card)}
-    .app.chat-open .chat{transform:translateX(0)}
-    .head button.back{display:block}
-    .b{max-width:85%}
-    .card{margin:6vh 14px;padding:20px}
-    .side h2{font-size:18px}
-    .admin-view-wrap{flex-direction:column;max-height:70vh}
-    .admin-view-chats{width:100%;max-height:120px}
+  .auth-card{
+    width:100%; max-width:380px; background:var(--bg2); border:1px solid var(--line);
+    border-radius:16px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .auth-card h1{margin:0 0 4px; font-size:22px}
+  .auth-card p{margin:0 0 18px; color:var(--dim); font-size:13px}
+  .field{margin-bottom:12px}
+  .field label{display:block; font-size:12px; color:var(--dim); margin-bottom:6px}
+  .field input{
+    width:100%; padding:11px 12px; background:var(--bg3); border:1px solid var(--line);
+    border-radius:10px; color:var(--txt); font-size:15px; outline:none;
+  }
+  .field input:focus{border-color:var(--acc)}
+  .btn{
+    width:100%; padding:12px; border:none; border-radius:10px; font-size:15px;
+    font-weight:600; background:var(--acc); color:#fff;
+  }
+  .btn:active{transform:scale(.99)}
+  .btn.ghost{background:transparent; border:1px solid var(--line); color:var(--txt)}
+  .btn.small{width:auto; padding:8px 12px; font-size:13px}
+  .switch{text-align:center; margin-top:14px; font-size:13px; color:var(--dim)}
+  .switch a{color:var(--acc2); text-decoration:none; cursor:pointer}
+  .err{color:var(--err); font-size:13px; min-height:18px; margin-top:8px; text-align:center}
+
+  #app{flex:1; display:flex; flex-direction:column; min-height:0}
+  header.top{
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    background:var(--bg2); border-bottom:1px solid var(--line); flex:0 0 auto;
+  }
+  header.top .title{font-weight:700; font-size:16px; flex:1; display:flex; align-items:center; gap:8px}
+  .badge{
+    background:var(--err); color:#fff; font-size:11px; font-weight:700;
+    border-radius:10px; padding:1px 6px; min-width:18px; text-align:center;
+  }
+  .icon-btn{
+    background:transparent; border:none; color:var(--dim); font-size:18px;
+    padding:6px; border-radius:8px; line-height:1;
+  }
+  .icon-btn:active{background:var(--bg3)}
+
+  .tabs{display:flex; background:var(--bg2); border-bottom:1px solid var(--line); flex:0 0 auto}
+  .tab{
+    flex:1; padding:11px 8px; text-align:center; font-size:14px; color:var(--dim);
+    background:transparent; border:none; border-bottom:2px solid transparent;
+  }
+  .tab.active{color:var(--txt); border-bottom-color:var(--acc); font-weight:600}
+
+  .content{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0}
+  .pane{padding:8px}
+
+  .searchbar{padding:8px 8px 0}
+  .searchbar input{
+    width:100%; padding:10px 12px; background:var(--bg3); border:1px solid var(--line);
+    border-radius:10px; color:var(--txt); font-size:14px; outline:none;
+  }
+
+  .list{display:flex; flex-direction:column; gap:2px; padding:8px}
+  .row{
+    display:flex; align-items:center; gap:10px; padding:10px; border-radius:10px;
+    background:transparent; border:none; text-align:left; width:100%; color:var(--txt);
+  }
+  .row:active{background:var(--bg3)}
+  .row.pinned{background:rgba(76,141,255,.08)}
+  .avatar{
+    width:44px; height:44px; border-radius:50%; background:var(--bg3); flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; font-size:20px; overflow:hidden;
+    position:relative;
+  }
+  .avatar img{width:100%; height:100%; object-fit:cover}
+  .dot{
+    width:10px; height:10px; border-radius:50%; background:var(--ok);
+    position:absolute; right:-1px; bottom:-1px; border:2px solid var(--bg2);
+  }
+  .row .meta{flex:1; min-width:0}
+  .row .name{font-size:15px; font-weight:600; display:flex; align-items:center; gap:6px}
+  .row .name .muted-ico{font-size:12px; color:var(--dim)}
+  .row .prev{
+    font-size:13px; color:var(--dim); white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; margin-top:2px;
+  }
+  .row .side{display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex:0 0 auto}
+  .row .time{font-size:11px; color:var(--dim)}
+  .row .unread{
+    background:var(--acc); color:#fff; font-size:11px; font-weight:700;
+    border-radius:10px; padding:1px 7px; min-width:18px; text-align:center;
+  }
+  .empty{padding:40px 20px; text-align:center; color:var(--dim); font-size:14px}
+  .section-title{padding:12px 12px 6px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim)}
+
+  #chat{position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; z-index:30}
+  .chat-head{
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
+    background:var(--bg2); border-bottom:1px solid var(--line); flex:0 0 auto;
+  }
+  .chat-head .meta{flex:1; min-width:0}
+  .chat-head .name{font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .chat-head .status{font-size:12px; color:var(--dim)}
+  .chat-head .status.online{color:var(--ok)}
+  .messages{
+    flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:12px;
+    display:flex; flex-direction:column; gap:6px; min-height:0;
+  }
+  .msg{
+    max-width:78%; padding:8px 11px; border-radius:14px; font-size:14px; line-height:1.35;
+    word-wrap:break-word; white-space:pre-wrap; position:relative;
+  }
+  .msg.me{align-self:flex-end; background:var(--acc); color:#fff; border-bottom-right-radius:4px}
+  .msg.other{align-self:flex-start; background:var(--bg3); border-bottom-left-radius:4px}
+  .msg .mtime{font-size:10px; opacity:.7; margin-top:3px; text-align:right}
+  .msg .reply{
+    font-size:12px; opacity:.85; border-left:2px solid currentColor; padding-left:6px;
+    margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .msg.deleted{opacity:.5; font-style:italic}
+  .msg .edited{font-size:10px; opacity:.7; margin-left:4px}
+  .msg .reacts{display:flex; gap:4px; flex-wrap:wrap; margin-top:4px}
+  .msg .react{
+    background:rgba(255,255,255,.15); border-radius:10px; padding:0 6px; font-size:12px;
+    display:flex; align-items:center; gap:3px; cursor:pointer;
+  }
+  .msg.me .react{background:rgba(0,0,0,.18)}
+  .sender-tag{font-weight:600}
+  .typing{font-size:12px; color:var(--dim); padding:0 12px 6px; min-height:16px}
+  .composer{
+    display:flex; gap:8px; padding:10px 12px; background:var(--bg2);
+    border-top:1px solid var(--line); flex:0 0 auto; align-items:flex-end;
+  }
+  .composer textarea{
+    flex:1; resize:none; max-height:120px; min-height:38px; padding:9px 11px;
+    background:var(--bg3); border:1px solid var(--line); border-radius:10px;
+    color:var(--txt); font-size:14px; outline:none; line-height:1.3;
+  }
+  .composer textarea:focus{border-color:var(--acc)}
+  .send{
+    width:42px; height:38px; border:none; border-radius:10px; background:var(--acc);
+    color:#fff; font-size:18px; flex:0 0 auto;
+  }
+
+  .modal{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:40;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .sheet{
+    width:100%; max-width:520px; background:var(--bg2); border:1px solid var(--line);
+    border-radius:16px 16px 0 0; padding:18px; max-height:80vh; overflow-y:auto;
+  }
+  .sheet h3{margin:0 0 12px; font-size:17px}
+  .sheet .kv{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); font-size:14px}
+  .sheet .kv:last-child{border-bottom:none}
+  .sheet .kv .k{color:var(--dim)}
+  .sheet .actions{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap}
+  .sheet .actions .btn{flex:1; min-width:120px}
+  .danger{color:var(--err); border-color:rgba(255,92,92,.5) !important}
+  .pinned-ico{font-size:12px; color:var(--acc2)}
+
+  @media(min-width:760px){
+    .pane{max-width:720px; margin:0 auto}
+    #chat{max-width:760px; margin:0 auto; border-left:1px solid var(--line); border-right:1px solid var(--line)}
   }
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script>
+
+<div id="auth">
+  <div class="auth-card">
+    <h1 id="authTitle">Вход</h1>
+    <p id="authSub">Мессенджер. Локально. Без лишнего.</p>
+    <div class="field">
+      <label>Имя</label>
+      <input id="inUser" autocomplete="username" placeholder="nickname" maxlength="32">
+    </div>
+    <div class="field">
+      <label>Пароль</label>
+      <input id="inPass" type="password" autocomplete="current-password" placeholder="••••••" maxlength="64">
+    </div>
+    <button class="btn" id="btnAuth">Войти</button>
+    <div class="switch">
+      <span id="switchText">Нет аккаунта?</span>
+      <a id="switchLink">Регистрация</a>
+    </div>
+    <div class="err" id="authErr"></div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="title">
+      <span id="appTitle">Диалоги</span>
+      <span class="badge hidden" id="totalBadge">0</span>
+    </div>
+    <button class="icon-btn" id="btnSearchAll" title="Поиск по всем">🔍</button>
+    <button class="icon-btn" id="btnProfile" title="Профиль">👤</button>
+    <button class="icon-btn" id="btnLogout" title="Выйти">⎋</button>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="dialogs">Диалоги</button>
+    <button class="tab" data-tab="people">Люди</button>
+    <button class="tab" data-tab="groups">Группы</button>
+  </div>
+
+  <div class="content" id="content">
+    <div class="pane" id="paneDialogs">
+      <div class="list" id="listDialogs"></div>
+    </div>
+    <div class="pane hidden" id="panePeople">
+      <div class="searchbar"><input id="peopleSearch" placeholder="Поиск людей…"></div>
+      <div class="list" id="listPeople"></div>
+    </div>
+    <div class="pane hidden" id="paneGroups">
+      <div class="list" id="listGroups"></div>
+      <div style="padding:8px">
+        <button class="btn ghost small" id="btnCreateGroup">+ Создать группу</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="chat" class="hidden">
+  <div class="chat-head">
+    <button class="icon-btn" id="chatBack">←</button>
+    <div class="avatar" id="chatAvatar">💬</div>
+    <div class="meta">
+      <div class="name" id="chatName">Чат</div>
+      <div class="status" id="chatStatus"></div>
+    </div>
+    <button class="icon-btn" id="chatProfile" title="Профиль">ℹ️</button>
+    <button class="icon-btn" id="chatMore" title="Ещё">⋮</button>
+  </div>
+  <div class="messages" id="messages"></div>
+  <div class="typing" id="typingLine"></div>
+  <div class="composer">
+    <textarea id="msgInput" rows="1" placeholder="Сообщение…" maxlength="4096"></textarea>
+    <button class="send" id="btnSend">➤</button>
+  </div>
+</div>
+
+<div class="modal hidden" id="modal">
+  <div class="sheet" id="sheet"></div>
+</div><script>
 "use strict";
-const api = async (u, o = {}) => {
-  const r = await fetch(u, {
-    headers: {'Content-Type':'application/json'},
-    credentials: 'same-origin',
-    ...o
-  });
-  if (r.status === 429){
-    console.warn('429 — ждём 30 секунд');
-    await new Promise(res => setTimeout(res, 30000));
-    throw Error('Слишком много запросов, подожди');
-  }
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw Error(d.error || 'Ошибка');
-  return d;
+
+const $ = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => Array.from(el.querySelectorAll(s));
+
+let ME = null;
+let state = {
+  tab: "dialogs",
+  dialogs: [],
+  people: [],
+  groups: [],
+  current: null,
+  messages: [],
+  totalUnread: 0,
 };
+let timers = {};
+let chatPoll = null;
 
-const state = {
-  me: null, peer: null, group: null, tab: 'users', timer: null, typingSent: 0,
-  replyTo: null, editId: null, pendingImage: null,
-  botActive: false, botStep: 0, botPackId: null, botPackName: null
-};
-const root = document.getElementById('root');
-let appEl = null;
-let typingLine = null;
-let usersBoxRef = null;
-let groupsBoxRef = null;
-let msgsBoxRef = null;
-let chatHeadRef = null;
-let stickerPanelRef = null;
-let lastListHash = '';
-let playerActive = false;
-
-const EMOJI_LIST = ('😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😜 🤪 😝 🤗 🤔 🤨 😐 😑 😶 🙄 😏 😣 😥 😮 🤐 😯 😪 😴 😛 😕 😟 🙁 😞 😔 😢 😭 😤 😠 😡 🤬 🤯 😳 🥺 😱 😨 😰 😓 😩 😫 🥱 🤤 👋 👍 👎 👌 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👏 🙌 👐 🤲 🤝 🙏 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 🔥 ✨ 🎉 🎊 🎁 🎈').split(/\s+/).filter(Boolean);
-
-const REACT_LIST = ['👍','❤️','😂','🔥','😮','😢'];
-
-function el(tag, props, children){
-  const n = document.createElement(tag);
-  if (props) for (const k in props){
-    if (k === 'class') n.className = props[k];
-    else if (k === 'text') n.textContent = props[k];
-    else if (k === 'on') for (const ev in props[k]) n.addEventListener(ev, props[k][ev]);
-    else if (k in n) n[k] = props[k];
-    else n.setAttribute(k, props[k]);
+async function api(path, opts={}){
+  const o = Object.assign({headers:{}}, opts);
+  if (o.body && typeof o.body !== "string"){
+    o.headers["Content-Type"] = "application/json";
+    o.body = JSON.stringify(o.body);
   }
-  if (children) for (const c of [].concat(children)){
-    if (c == null || c === false) continue;
-    n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  const r = await fetch(path, o);
+  let data = null;
+  try{ data = await r.json(); }catch(e){}
+  if (!r.ok){
+    const msg = (data && (data.error || data.message)) || ("HTTP " + r.status);
+    const err = new Error(msg); err.status = r.status; err.data = data;
+    throw err;
   }
-  return n;
+  return data;
 }
-function clear(n){ while (n.firstChild) n.removeChild(n.firstChild); }
-function makeAvatar(u, size){
-  const d = el('div', { class: 'avatar' + (size ? ' ' + size : '') });
-  const a = (u && u.avatar) || '';
-  if (a.startsWith('data:')) d.style.backgroundImage = 'url("' + a + '")';
-  else if (a) d.textContent = a;
-  else d.textContent = '👤';
-  return d;
+
+function esc(s){
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
-function isMobile(){ return window.matchMedia('(max-width: 700px)').matches; }
 function fmtTime(ts){
-  const d = new Date((ts || 0) * 1000);
-  const h = String(d.getHours()).padStart(2,'0');
-  const m = String(d.getMinutes()).padStart(2,'0');
-  return h + ':' + m;
+  if (!ts) return "";
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  const y = new Date(now); y.setDate(now.getDate()-1);
+  if (d.toDateString() === y.toDateString()) return "вчера";
+  return d.toLocaleDateString([], {day:"2-digit", month:"2-digit"});
 }
-function openImageViewer(src){
-  const overlay = el('div', {class:'img-viewer'});
-  const img = el('img', {src});
-  overlay.appendChild(img);
-  overlay.addEventListener('click', () => overlay.remove());
-  document.body.appendChild(overlay);
+function fmtFullTime(ts){
+  if (!ts) return "";
+  return new Date(ts*1000).toLocaleString([], {hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit"});
 }
-
-/* ======== ТЁМНАЯ ТЕМА ======== */
-function applyTheme(){
-  const t = localStorage.getItem('theme') || 'light';
-  document.documentElement.setAttribute('data-theme', t);
+function lastSeenText(ts, online){
+  if (online) return "в сети";
+  if (!ts) return "был(а) давно";
+  const diff = Math.floor(Date.now()/1000 - ts);
+  if (diff < 60) return "был(а) только что";
+  if (diff < 3600) return "был(а) " + Math.floor(diff/60) + " мин назад";
+  if (diff < 86400) return "был(а) " + Math.floor(diff/3600) + " ч назад";
+  return "был(а) " + fmtFullTime(ts);
 }
-function toggleTheme(){
-  const cur = document.documentElement.getAttribute('data-theme') || 'light';
-  const next = cur === 'dark' ? 'light' : 'dark';
-  localStorage.setItem('theme', next);
-  document.documentElement.setAttribute('data-theme', next);
+function avatarHTML(av, fallback){
+  if (av && (av.startsWith("http") || av.startsWith("data:") || av.startsWith("/"))){
+    return '<img src="'+esc(av)+'" alt="">';
+  }
+  return esc(av || fallback || "👤");
 }
-applyTheme();
-
-/* ======== АВТОРИЗАЦИЯ ======== */
-async function renderAuth(){
-  clear(root);
-  appEl = null;
-  let reg = true;
-  const themeBtn = el('button', {class:'link', type:'button', text:'🌓', style:{float:'right', fontSize:'20px'}});
-  themeBtn.addEventListener('click', () => { toggleTheme(); });
-  const modeEl = el('p', {class:'muted', style:{padding:'0'}, text:'Регистрация'});
-  const inpU = el('input', {class:'field', placeholder:'Имя пользователя', autocomplete:'username'});
-  const inpP = el('input', {class:'field', type:'password', placeholder:'Пароль', autocomplete:'current-password'});
-  const errEl = el('div', {class:'error'});
-  const btnGo = el('button', {class:'primary', type:'button', text:'Зарегистрироваться'});
-  const btnSwap = el('button', {class:'link', type:'button', text:'У меня уже есть аккаунт'});
-
-  btnSwap.addEventListener('click', () => {
-    reg = !reg;
-    modeEl.textContent = reg ? 'Регистрация' : 'Вход';
-    btnGo.textContent = reg ? 'Зарегистрироваться' : 'Войти';
-    btnSwap.textContent = reg ? 'У меня уже есть аккаунт' : 'Создать аккаунт';
-    errEl.textContent = '';
-  });
-  btnGo.addEventListener('click', async () => {
-    errEl.textContent = '';
-    try {
-      const d = await api(reg ? '/api/register' : '/api/login', {
-        method:'POST',
-        body: JSON.stringify({ username: inpU.value.trim(), password: inpP.value })
-      });
-      state.me = { id: d.id, username: d.username, avatar: d.avatar || '', email: d.email || '', is_admin: !!d.is_admin };
-      await renderApp();
-    } catch(e){ errEl.textContent = e.message; }
-  });
-  inpU.addEventListener('keydown', e => { if (e.key === 'Enter') inpP.focus(); });
-  inpP.addEventListener('keydown', e => { if (e.key === 'Enter') btnGo.click(); });
-  root.appendChild(el('div', {class:'card'}, [
-    themeBtn,
-    el('h1', {text:'Messenger'}), modeEl, inpU, inpP, btnGo, btnSwap, errEl
-  ]));
+function toast(msg){
+  console.warn("[toast]", msg);
 }
 
-/* ======== БОТ ДЛЯ СТИКЕРОВ ======== */
-function botSay(text){
-  const msgs = document.querySelector('.msgs');
-  if (!msgs) return;
-  const b = el('div', {class:'b', text: text});
-  const row = el('div', {class:'brow bot-msg'}, [b]);
-  msgs.appendChild(row);
-  msgs.scrollTop = msgs.scrollHeight;
+let authMode = "login";
+function setAuthMode(m){
+  authMode = m;
+  $("#authTitle").textContent = m === "login" ? "Вход" : "Регистрация";
+  $("#authSub").textContent = m === "login" ? "Мессенджер. Локально. Без лишнего." : "Создай аккаунт за 5 секунд.";
+  $("#btnAuth").textContent = m === "login" ? "Войти" : "Создать аккаунт";
+  $("#switchText").textContent = m === "login" ? "Нет аккаунта?" : "Уже есть аккаунт?";
+  $("#switchLink").textContent = m === "login" ? "Регистрация" : "Вход";
+  $("#authErr").textContent = "";
 }
-
-function startBotStickers(){
-  state.botActive = true;
-  state.botStep = 1;
-  state.botPackId = null;
-  state.botPackName = null;
-  botSay('Привет! Я бот-стикермейкер 🎨');
-  setTimeout(() => botSay('Хочешь создать стикер-пак? Напиши "да" или "нет"'), 600);
-}
-
-async function handleBotMessage(text){
-  const t = text.toLowerCase().trim();
-  if (state.botStep === 1){
-    if (t === 'да' || t === 'yes' || t === 'ок' || t === 'ok'){
-      state.botStep = 2;
-      botSay('Отлично! Пришли картинку — я сделаю из неё стикер 📎');
-    } else if (t === 'нет' || t === 'no'){
-      state.botActive = false; state.botStep = 0;
-      botSay('Ок, если что — пиши "бот"');
-    } else {
-      botSay('Напиши "да" или "нет"');
-    }
-    return true;
-  }
-  if (state.botStep === 2){
-    if (state.pendingImage){ state.botStep = 3; botSay('Красиво! Как назовём стикер-пак?'); return true; }
-    botSay('Жду картинку — нажми 📎 и прикрепи её');
-    return true;
-  }
-  if (state.botStep === 3){
-    if (text.trim().length < 2){ botSay('Минимум 2 символа'); return true; }
-    try {
-      const packs = await api('/api/sticker-packs');
-      const existing = (packs.packs || []).find(p => p.name.toLowerCase() === text.trim().toLowerCase());
-      if (existing){
-        state.botPackId = existing.id; state.botPackName = existing.name; state.botStep = 4;
-        botSay('Такой пак уже есть — добавлю туда! Пришли ещё картинку 📎');
-      } else {
-        const p = await api('/api/sticker-packs', { method:'POST', body: JSON.stringify({ name: text.trim() })});
-        state.botPackId = p.id; state.botPackName = p.name; state.botStep = 4;
-        botSay('Пак "' + p.name + '" создан! Теперь пришли картинку для стикера 📎');
-      }
-    } catch(e){ botSay('Ошибка: ' + e.message); }
-    return true;
-  }
-  if (state.botStep === 4){
-    if (state.pendingImage){
-      try {
-        await api('/api/sticker-packs/' + state.botPackId + '/stickers', { method:'POST', body: JSON.stringify({ image: state.pendingImage })});
-        state.pendingImage = null;
-        const ap = document.querySelector('.attach-preview');
-        if (ap) ap.style.display = 'none';
-        await loadStickers();
-        state.botStep = 5;
-        botSay('Стикер добавлен! Ещё одну картинку? Напиши "да" или "готово"');
-      } catch(e){ botSay('Ошибка: ' + e.message); }
-      return true;
-    }
-    botSay('Пришли картинку 📎 или напиши "готово"');
-    return true;
-  }
-  if (state.botStep === 5){
-    if (t === 'да' || t === 'yes'){ state.botStep = 4; botSay('Кидай картинку 📎'); }
-    else if (t === 'готово' || t === 'нет' || t === 'no'){
-      state.botActive = false; state.botStep = 0;
-      botSay('Пак "' + state.botPackName + '" готов! Открой панель стикеров — кнопка 🧩');
-    } else { botSay('Напиши "да" или "готово"'); }
-    return true;
-  }
-  return false;
-}
-/* ======== ЗАГРУЗКА СТИКЕРОВ ======== */
-async function loadStickers(){
-  if (!stickerPanelRef) return;
-  try {
-    const d = await api('/api/sticker-packs');
-    clear(stickerPanelRef);
-    if (!d.packs || !d.packs.length){
-      stickerPanelRef.appendChild(el('div', {class:'muted', text:'Стикеров пока нет. Напиши "бот" в чат.'}));
-      return;
-    }
-    for (const p of d.packs){
-      for (const s of (p.stickers || [])){
-        const img = el('img', {src: s.image, title: p.name});
-        img.addEventListener('click', async () => {
-          try {
-            if (state.group){
-              await api('/api/groups/' + state.group.id + '/messages', { method:'POST', body: JSON.stringify({ text: s.image, kind: 'sticker' }) });
-            } else if (state.peer){
-              await api('/api/messages', { method:'POST', body: JSON.stringify({ receiver: state.peer.id, text: s.image, kind: 'sticker' }) });
-            }
-            stickerPanelRef.classList.remove('open');
-            await refreshMessages();
-          } catch(e){ alert(e.message); }
-        });
-        stickerPanelRef.appendChild(img);
-      }
-    }
-  } catch(e){ console.error(e); }
-}
-
-/* ======== ОСНОВНОЙ ЭКРАН ======== */
-async function renderApp(){
-  clear(root);
-  const usersBox = el('div', {class:'users'});
-  usersBoxRef = usersBox;
-  const groupsBox = el('div', {class:'users'});
-  groupsBox.style.display = 'none';
-  groupsBoxRef = groupsBox;
-
-  const inpSearch = el('input', {class:'field', placeholder:'Поиск', autocomplete:'off'});
-  const tabUsers = el('button', {type:'button', text:'Люди', class:'active'});
-  const tabGroups = el('button', {type:'button', text:'Группы'});
-  tabUsers.addEventListener('click', () => window.__switchTab('users'));
-  tabGroups.addEventListener('click', () => window.__switchTab('groups'));
-  const tabs = el('div', {class:'tabs'}, [tabUsers, tabGroups]);
-
-  const headTitle = el('div', {class:'name', text:'Выберите чат'});
-  const headSub = el('div', {class:'sub', text:''});
-  const headCol = el('div', {class:'col'}, [headTitle, headSub]);
-  const headAva = el('div');
-  const inpText = el('input', {placeholder:'Сообщение...', disabled:true, autocomplete:'off'});
-
-  const btnBack = el('button', {class:'back', type:'button', text:'←', title:'Назад'});
-  btnBack.addEventListener('click', () => {
-    if (appEl) appEl.classList.remove('chat-open');
-    state.peer = null; state.group = null; state.replyTo = null; state.editId = null;
-    headTitle.textContent = 'Выберите чат';
-    headSub.textContent = '';
-    clear(headAva);
-    inpText.disabled = true;
-    if (window.__refreshReplyPreview) window.__refreshReplyPreview();
-    if (window.__refreshAttachPreview) window.__refreshAttachPreview();
-  });
-
-  const btnBlock = el('button', {class:'call', text:'🚫', type:'button', title:'Заблокировать'});
-  btnBlock.style.background = '#ea4335';
-  btnBlock.addEventListener('click', blockCurrentPeer);
-
-  const btnCall = el('button', {class:'call', text:'📞', type:'button', title:'Позвонить'});
-  btnCall.addEventListener('click', startCall);
-
-  const btnSearch = el('button', {class:'call', text:'🔍', type:'button', title:'Поиск по сообщениям'});
-  btnSearch.style.background = '#5a5a6a';
-  btnSearch.addEventListener('click', openSearchModal);
-
-  const btnTheme = el('button', {class:'call', text:'🌓', type:'button', title:'Тема'});
-  btnTheme.style.background = '#5a5a6a';
-  btnTheme.addEventListener('click', toggleTheme);
-
-  const headRow = el('div', {class:'row'}, [headAva, headCol]);
-  const chatHead = el('div', {class:'head'}, [btnBack, headRow, btnSearch, btnTheme, btnBlock, btnCall]);
-  chatHeadRef = chatHead;
-  const msgsBox = el('div', {class:'msgs'});
-  msgsBoxRef = msgsBox;
-  typingLine = el('div', {class:'typing', text:''});
-
-  const replyPreview = el('div', {class:'reply-preview'});
-  replyPreview.style.display = 'none';
-  const replyText = el('div', {style:{flex:'1', minWidth:'0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}});
-  const replyX = el('button', {class:'x', type:'button', text:'×'});
-  replyX.addEventListener('click', () => { state.replyTo = null; state.editId = null; refreshReplyPreview(); });
-  replyPreview.appendChild(replyText);
-  replyPreview.appendChild(replyX);
-
-  const attachPreview = el('div', {class:'attach-preview'});
-  const attachImg = el('img');
-  const attachX = el('button', {class:'x', type:'button', text:'×'});
-  attachX.addEventListener('click', () => { state.pendingImage = null; refreshAttachPreview(); });
-  attachPreview.appendChild(attachImg);
-  attachPreview.appendChild(attachX);
-
-  const btnSend = el('button', {class:'send', type:'button', text:'➤'});
-  const btnSmile = el('button', {class:'icon', type:'button', text:'😊'});
-  const btnSticker = el('button', {class:'icon', type:'button', text:'🧩', title:'Стикеры'});
-  const btnAttach = el('button', {class:'icon', type:'button', text:'📎', title:'Прикрепить картинку'});
-  const btnMic = el('button', {class:'icon', type:'button', text:'🎤'});
-
-  const fileInput = el('input', {type:'file', accept:'image/*'});
-  fileInput.style.display = 'none';
-  btnAttach.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', () => {
-    const f = fileInput.files && fileInput.files[0];
-    if (!f) return;
-    if (f.size > 2 * 1024 * 1024){ alert('Максимум 2 МБ.'); fileInput.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.pendingImage = String(reader.result);
-      refreshAttachPreview();
-      fileInput.value = '';
-    };
-    reader.readAsDataURL(f);
-  });
-
-  function refreshAttachPreview(){
-    if (state.pendingImage){
-      attachPreview.style.display = 'flex';
-      attachImg.src = state.pendingImage;
-    } else {
-      attachPreview.style.display = 'none';
-      attachImg.removeAttribute('src');
-    }
-  }
-  window.__refreshAttachPreview = refreshAttachPreview;
-
-  function refreshReplyPreview(){
-    if (state.replyTo){
-      replyPreview.style.display = 'flex';
-      replyText.textContent = 'Ответ: ' + (state.replyTo.sender_name || state.replyTo.username || '') + ' — ' + (state.replyTo.text || '').slice(0, 60);
-    } else if (state.editId){
-      replyPreview.style.display = 'flex';
-      replyText.textContent = 'Редактирование сообщения';
-    } else {
-      replyPreview.style.display = 'none';
-    }
-  }
-  window.__refreshReplyPreview = refreshReplyPreview;
-
-  const emojiPanel = el('div', {class:'emoji-panel'});
-  for (const e of EMOJI_LIST){
-    const b = el('button', {type:'button', text:e});
-    b.addEventListener('click', () => { inpText.value += e; inpText.focus(); });
-    emojiPanel.appendChild(b);
-  }
-  btnSmile.addEventListener('click', () => {
-    emojiPanel.classList.toggle('open');
-    stickerPanelRef.classList.remove('open');
-  });
-
-  const stickerPanel = el('div', {class:'sticker-panel'});
-  stickerPanelRef = stickerPanel;
-  btnSticker.addEventListener('click', () => {
-    stickerPanel.classList.toggle('open');
-    emojiPanel.classList.remove('open');
-    if (stickerPanel.classList.contains('open')) loadStickers();
-  });
-
-  let mediaRec = null, chunks = [], recStream = null, recMime = '';
-  let recTimer = null, recSeconds = 0;
-  function pickMime(){
-    const c = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus','audio/ogg'];
-    for (const t of c){ try { if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t; } catch(e){} }
-    return '';
-  }
-  function encodeWAV(samples, sampleRate){
-    const buffer = new ArrayBuffer(44 + samples.length * 2);
-    const view = new DataView(buffer);
-    function writeStr(off, s){ for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); }
-    writeStr(0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true);
-    writeStr(8, 'WAVE'); writeStr(12, 'fmt ');
-    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true); view.setUint16(34, 16, true);
-    writeStr(36, 'data'); view.setUint32(40, samples.length * 2, true);
-    let off = 44;
-    for (let i = 0; i < samples.length; i++, off += 2){
-      let s = Math.max(-1, Math.min(1, samples[i]));
-      view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-    }
-    return new Blob([buffer], { type: 'audio/wav' });
-  }
-  async function blobToWav(blob){
-    const ab = await blob.arrayBuffer();
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const audioBuf = await ctx.decodeAudioData(ab);
-    const targetRate = 16000;
-    const src = audioBuf.getChannelData(0);
-    const srcRate = audioBuf.sampleRate;
-    const ratio = srcRate / targetRate;
-    const newLen = Math.floor(src.length / ratio);
-    const out = new Float32Array(newLen);
-    for (let i = 0; i < newLen; i++){
-      const idx = i * ratio;
-      const i0 = Math.floor(idx);
-      const i1 = Math.min(i0 + 1, src.length - 1);
-      const frac = idx - i0;
-      out[i] = src[i0] * (1 - frac) + src[i1] * frac;
-    }
-    const wav = encodeWAV(out, targetRate);
-    try { ctx.close(); } catch(e){}
-    return wav;
-  }
-  btnMic.addEventListener('click', async () => {
-    if (mediaRec && mediaRec.state === 'recording'){
-      try { mediaRec.requestData(); } catch(e){}
-      clearInterval(recTimer);
-      btnMic.textContent = '🎤';
-      btnMic.classList.remove('rec');
-      mediaRec.stop();
-      return;
-    }
-    if (!navigator.mediaDevices || !window.MediaRecorder){ alert('Этот браузер не поддерживает запись звука'); return; }
-    try {
-      recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      chunks = [];
-      recMime = pickMime();
-      mediaRec = recMime ? new MediaRecorder(recStream, { mimeType: recMime }) : new MediaRecorder(recStream);
-      mediaRec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-      mediaRec.onstop = async () => {
-        recStream.getTracks().forEach(t => t.stop());
-        clearInterval(recTimer);
-        btnMic.textContent = '🎤';
-        btnMic.classList.remove('rec');
-        const type = (mediaRec && mediaRec.mimeType) || recMime || 'audio/webm';
-        const blob = new Blob(chunks, { type });
-        if (blob.size < 500) return;
-        let finalBlob = blob;
-        try { finalBlob = await blobToWav(blob); } catch(e){ console.error('wav', e); }
-        const reader = new FileReader();
-        reader.onload = async () => {
-          try {
-            if (state.group){
-              await api('/api/groups/' + state.group.id + '/messages', { method:'POST', body: JSON.stringify({ text: String(reader.result), kind: 'voice' }) });
-            } else if (state.peer){
-              await api('/api/messages', { method:'POST', body: JSON.stringify({ receiver: state.peer.id, text: String(reader.result), kind: 'voice' }) });
-            }
-            await refreshMessages();
-          } catch(e){ alert(e.message); }
-        };
-        reader.readAsDataURL(finalBlob);
-      };
-      mediaRec.start(1000);
-      recSeconds = 0;
-      recTimer = setInterval(() => { recSeconds++; btnMic.textContent = '⏹ ' + recSeconds + 'с'; }, 1000);
-      btnMic.classList.add('rec');
-    } catch(e){ alert('Нет доступа к микрофону: ' + e.message); }
-  });
-
-  const btnOut = el('button', {class:'link', type:'button', text:'Выйти'});
-  btnOut.addEventListener('click', async () => {
-    await api('/api/logout', { method:'POST' }).catch(()=>{});
-    state.me = null; state.peer = null; state.group = null;
-    clearInterval(state.timer); state.timer = null;
-    await renderAuth();
-  });
-  const meAva = makeAvatar(state.me, 'small');
-  meAva.style.cursor = 'pointer';
-  meAva.addEventListener('click', openProfileModal);
-  const meName = el('div', {class:'name', text: state.me.username});
-  const meEdit = el('button', {class:'link edit', type:'button', text:'Профиль'});
-  meEdit.addEventListener('click', openProfileModal);
-  const meBar = el('div', {class:'me-bar'}, [meAva, meName, meEdit]);
-
-  inpSearch.addEventListener('input', () => {
-    if (state.tab === 'users') loadUsers(inpSearch.value);
-    else loadGroups(inpSearch.value);
-  });
-  btnSend.addEventListener('click', () => sendMessage(inpText));
-  inpText.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); sendMessage(inpText); } });
-  inpText.addEventListener('input', () => {
-    if (!state.peer) return;
-    const now = Date.now();
-    if (now - state.typingSent > 2000){
-      state.typingSent = now;
-      api('/api/typing', { method:'POST', body: JSON.stringify({ to: state.peer.id }) }).catch(()=>{});
-    }
-  });
-
-  appEl = el('div', {class:'app'}, [
-    el('aside', {class:'side'}, [
-      el('div', {class:'top'}, [el('h2', {text:'Чаты'}), btnOut]),
-      meBar, tabs, inpSearch, usersBox, groupsBox
-    ]),
-    el('main', {class:'chat'}, [
-      chatHead, msgsBox, typingLine,
-      el('div', {class:'compose-wrap'}, [
-        replyPreview, attachPreview, emojiPanel, stickerPanel,
-        el('div', {class:'compose'}, [btnSmile, btnSticker, btnAttach, inpText, btnMic, btnSend]),
-        fileInput
-      ])
-    ])
-  ]);
-  root.appendChild(appEl);
-
-  if (state.me.is_admin){
-    const adminBtn = document.createElement('button');
-    adminBtn.type = 'button';
-    adminBtn.textContent = '⚙';
-    adminBtn.title = 'Управление пользователями';
-    adminBtn.setAttribute('style', [
-      'position: fixed',
-      'left: 20px',
-      'bottom: 20px',
-      'width: 56px',
-      'height: 56px',
-      'border-radius: 50%',
-      'background: #3678e8',
-      'color: #ffffff',
-      'border: 0',
-      'font-size: 26px',
-      'line-height: 56px',
-      'text-align: center',
-      'cursor: pointer',
-      'box-shadow: 0 4px 16px rgba(0,0,0,0.3)',
-      'z-index: 2147483647'
-    ].join(';'));
-    adminBtn.addEventListener('click', openAdminPanel);
-    document.body.appendChild(adminBtn);
-  }
-
-  window.__switchTab = function(t){
-    state.tab = t;
-    if (t === 'users'){ tabUsers.classList.add('active'); tabGroups.classList.remove('active'); usersBox.style.display = ''; groupsBox.style.display = 'none'; loadUsers(''); }
-    else { tabGroups.classList.add('active'); tabUsers.classList.remove('active'); groupsBox.style.display = ''; usersBox.style.display = 'none'; loadGroups(''); }
-  };
-
-  loadUsers('');
-
-  clearInterval(state.timer);
-  state.timer = setInterval(async () => {
-    if (document.hidden) return;
-    if (state.peer || state.group){
-      await refreshMessages();
-      if (state.peer){
-        try { const d = await api('/api/typing?who=' + state.peer.id); typingLine.textContent = d.typing ? 'печатает…' : ''; } catch(e){}
-        try {
-          const u = await api('/api/users?q=' + encodeURIComponent(state.peer.username));
-          const found = (u.users || []).find(x => x.id === state.peer.id);
-          if (found) headSub.textContent = found.online ? 'онлайн' : 'не в сети';
-        } catch(e){}
-      }
-    }
-  }, 5000);
-}
-
-async function loadUsers(q){
-  try {
-    const d = await api('/api/users?q=' + encodeURIComponent(q || ''));
-    clear(usersBoxRef);
-    if (!d.users.length){ usersBoxRef.appendChild(el('div', {class:'muted', text:'Никого не найдено'})); return; }
-    for (const u of d.users){
-      const active = state.peer && state.peer.id === u.id;
-      const av = makeAvatar(u, 'small');
-      const dot = el('div', {class:'dot' + (u.online ? ' on' : '')});
-      const wrap = el('div', {});
-      wrap.appendChild(el('b', {text: u.username + (u.username === 'admin_bot' ? ' 🤖' : '')}));
-      const item = el('div', {class:'user' + (active ? ' active' : '')}, [av, wrap, dot]);
-      item.addEventListener('click', () => openChat(u));
-      usersBoxRef.appendChild(item);
-    }
-  } catch(e){ console.error(e); }
-}
-
-async function loadGroups(q){
-  try {
-    const d = await api('/api/groups');
-    clear(groupsBoxRef);
-    const list = (d.groups || []).filter(g => !q || g.name.toLowerCase().includes(q.toLowerCase()));
-    const btnNew = el('div', {class:'user', style:{background:'var(--hover)'}}, [
-      el('div', {class:'g-icon', text:'➕'}),
-      el('b', {text:'Создать группу'})
-    ]);
-    btnNew.addEventListener('click', openCreateGroupModal);
-    groupsBoxRef.appendChild(btnNew);
-    for (const g of list){
-      const active = state.group && state.group.id === g.id;
-      const item = el('div', {class:'user' + (active ? ' active' : '')}, [
-        el('div', {class:'g-icon', text:'👥'}),
-        el('b', {text: g.name})
-      ]);
-      item.addEventListener('click', () => openGroup(g));
-      groupsBoxRef.appendChild(item);
-    }
-  } catch(e){ console.error(e); }
-}
-
-async function openChat(user){
-  lastListHash = '';
-  state.peer = { id: user.id, username: user.username, avatar: user.avatar };
-  state.group = null; state.replyTo = null; state.editId = null; state.pendingImage = null;
-  state.botActive = false; state.botStep = 0;
-  chatHeadRef.querySelector('.name').textContent = user.username;
-  chatHeadRef.querySelector('.sub').textContent = '';
-  const headAva = chatHeadRef.querySelector('.row').firstChild;
-  clear(headAva);
-  headAva.appendChild(makeAvatar(user, 'small'));
-  const inp = document.querySelector('.compose input');
-  inp.disabled = false; inp.focus();
-  if (window.__refreshReplyPreview) window.__refreshReplyPreview();
-  if (window.__refreshAttachPreview) window.__refreshAttachPreview();
-  await refreshMessages();
-  if (isMobile() && appEl) appEl.classList.add('chat-open');
-}
-
-async function openGroup(g){
-  lastListHash = '';
-  state.group = g;
-  state.peer = null; state.replyTo = null; state.editId = null; state.pendingImage = null;
-  chatHeadRef.querySelector('.name').textContent = g.name;
-  chatHeadRef.querySelector('.sub').textContent = g.members ? (g.members.length + ' участн.') : '';
-  const headAva = chatHeadRef.querySelector('.row').firstChild;
-  clear(headAva);
-  headAva.appendChild(el('div', {class:'g-icon', text:'👥'}));
-  const inp = document.querySelector('.compose input');
-  inp.disabled = false; inp.focus();
-  if (window.__refreshReplyPreview) window.__refreshReplyPreview();
-  if (window.__refreshAttachPreview) window.__refreshAttachPreview();
-  await refreshMessages();
-  if (isMobile() && appEl) appEl.classList.add('chat-open');
-}
-
-async function refreshMessages(){
-  try {
-    if (playerActive) return;
-    let list, isGroup = false;
-    if (state.group){
-      const d = await api('/api/groups/' + state.group.id + '/messages');
-      list = d.messages; isGroup = true;
-    } else if (state.peer){
-      const d = await api('/api/messages/' + state.peer.id);
-      list = d.messages;
-    } else { return; }
-
-    const hash = JSON.stringify((list || []).map(m => [
-      m.id, m.kind, m.deleted, m.edited,
-      (m.reactions || []).map(r => r.emoji).join(''),
-      m.reply_to || 0
-    ]));
-
-    if (hash === lastListHash) return;
-    lastListHash = hash;
-    renderList(list, isGroup);
-  } catch(e){ console.error(e); }
-}
-
-function renderList(list, isGroup){
-  clear(msgsBoxRef);
-  if (!list.length){ msgsBoxRef.appendChild(el('div', {class:'muted', text:'Сообщений пока нет'})); return; }
-  for (const m of list) msgsBoxRef.appendChild(renderMessage(m, isGroup));
-  msgsBoxRef.scrollTop = msgsBoxRef.scrollHeight;
-}
-
-function makeVoicePlayer(src, msgId){
-  const wrap = el('div', {class:'player'});
-  const btn = el('button', {class:'play', type:'button', text:'▶'});
-  const bar = el('div', {class:'bar'});
-  const fill = el('div', {class:'fill'});
-  bar.appendChild(fill);
-  const timeEl = el('div', {class:'time', text:'0:00'});
-  wrap.appendChild(btn); wrap.appendChild(bar); wrap.appendChild(timeEl);
-
-  let audioCtx = null, buffer = null, source = null, startedAt = 0, pausedAt = 0;
-  let playing = false, duration = 0, raf = null;
-
-  fetch(src).then(r => r.arrayBuffer()).then(ab => {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    audioCtx.decodeAudioData(ab).then(buf => {
-      buffer = buf; duration = buf.duration;
-      timeEl.textContent = fmtDur(duration);
-    }).catch(e => { timeEl.textContent = 'ошибка'; });
-  }).catch(()=>{ timeEl.textContent = 'ошибка'; });
-
-  function fmtDur(s){
-    s = Math.max(0, Math.round(s));
-    const m = Math.floor(s / 60);
-    const ss = String(s % 60).padStart(2,'0');
-    return m + ':' + ss;
-  }
-  function tick(){
-    if (!playing || !audioCtx || !buffer) return;
-    const cur = Math.min(audioCtx.currentTime - startedAt + pausedAt, duration);
-    fill.style.width = (cur / duration * 100) + '%';
-    timeEl.textContent = fmtDur(duration - cur);
-    if (cur >= duration){ stop(); }
-    else raf = requestAnimationFrame(tick);
-  }
-  function stop(){
-    playing = false;
-    btn.textContent = '▶';
-    fill.style.width = '0%';
-    pausedAt = 0;
-    if (source){ try { source.stop(); } catch(e){} source = null; }
-    if (raf){ cancelAnimationFrame(raf); raf = null; }
-    timeEl.textContent = fmtDur(duration);
-    playerActive = false;
-    refreshMessages();
-  }
-  btn.addEventListener('click', async () => {
-    if (!buffer){
-      await new Promise(r => setTimeout(r, 150));
-      if (!buffer){ timeEl.textContent = 'загрузка…'; return; }
-    }
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-    if (playing){
-      pausedAt += audioCtx.currentTime - startedAt;
-      try { source.stop(); } catch(e){}
-      playing = false;
-      btn.textContent = '▶';
-      if (raf){ cancelAnimationFrame(raf); raf = null; }
-      playerActive = false; refreshMessages(); return;
-    }
-    source = audioCtx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioCtx.destination);
-    source.onended = () => { if (playing) stop(); };
-    source.start(0, pausedAt);
-    startedAt = audioCtx.currentTime;
-    playing = true;
-    btn.textContent = '⏸';
-    playerActive = true;
-    tick();
-  });
-  return wrap;
-}
-
-function renderMessage(m, isGroup){
-  const out = m.sender === state.me.id;
-  const b = el('div', {class: 'b' + (out ? ' out' : ''), 'data-mid': m.id});
-  if (isGroup && !out && m.sender_name) b.appendChild(el('div', {class:'sender', text: m.sender_name}));
-
-  if (m.reply_to && m.reply_text){
-    const rq = el('div', {class:'reply'});
-    rq.appendChild(el('b', {text: m.reply_name || ''}));
-    rq.appendChild(document.createTextNode(m.reply_text.slice(0, 80)));
-    b.appendChild(rq);
-  }
-
-  if (m.deleted){
-    b.appendChild(el('span', {class:'deleted', text:'сообщение удалено'}));
-  } else if (m.kind === 'voice'){
-    b.appendChild(makeVoicePlayer(m.text, m.id));
-  } else if (m.kind === 'image'){
-    const img = el('img', {class:'att', src: m.text});
-    img.addEventListener('click', () => openImageViewer(m.text));
-    b.appendChild(img);
-  } else if (m.kind === 'sticker'){
-    const img = el('img', {class:'sticker', src: m.text});
-    img.style.cursor = 'pointer';
-    img.addEventListener('click', () => openImageViewer(m.text));
-    b.appendChild(img);
-  } else {
-    b.appendChild(document.createTextNode(m.text));
-  }
-
-  const meta = el('div', {class:'meta'});
-  meta.appendChild(document.createTextNode(fmtTime(m.created)));
-  if (m.edited) meta.appendChild(el('span', {class:'edited', text:'изм.'}));
-  if (out && !isGroup) meta.appendChild(el('span', {class:'check', text: m.read_at ? '✓✓' : '✓'}));
-  b.appendChild(meta);
-
-  if (m.reactions && m.reactions.length){
-    const rw = el('div', {class:'reacts'});
-    for (const r of m.reactions) rw.appendChild(el('span', {text: r.emoji}));
-    b.appendChild(rw);
-  }
-
-  b.addEventListener('contextmenu', (e) => { e.preventDefault(); showCtxMenu(e.clientX, e.clientY, m, out, isGroup); });
-  let touchT;
-  b.addEventListener('touchstart', () => { touchT = setTimeout(() => showCtxMenu(100, 200, m, out, isGroup), 600); });
-  b.addEventListener('touchend', () => clearTimeout(touchT));
-
-  return el('div', {class:'brow' + (out ? ' out' : '')}, [b]);
-}
-
-function showCtxMenu(x, y, m, out, isGroup){
-  document.querySelectorAll('.ctx-menu').forEach(n => n.remove());
-  const menu = el('div', {class:'ctx-menu'});
-  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - 160)) + 'px';
-  menu.style.top = Math.max(8, y) + 'px';
-
-  const btnReply = el('button', {type:'button', text:'↩ Ответить'});
-  btnReply.addEventListener('click', () => {
-    state.replyTo = { id: m.id, text: m.text, sender_name: m.sender_name || (out ? state.me.username : (state.peer ? state.peer.username : '')) };
-    state.editId = null;
-    if (window.__refreshReplyPreview) window.__refreshReplyPreview();
-    menu.remove();
-    const inp = document.querySelector('.compose input');
-    if (inp) inp.focus();
-  });
-  menu.appendChild(btnReply);
-
-  const btnReact = el('button', {type:'button', text:'👍 Реакция'});
-  btnReact.addEventListener('click', () => { menu.remove(); showReactPopup(x, y, m); });
-  menu.appendChild(btnReact);
-
-  if (out && !m.deleted && m.kind === 'text'){
-    const btnEdit = el('button', {type:'button', text:'✏ Изменить'});
-    btnEdit.addEventListener('click', () => {
-      state.editId = m.id; state.replyTo = null;
-      if (window.__refreshReplyPreview) window.__refreshReplyPreview();
-      const inp = document.querySelector('.compose input');
-      if (inp){ inp.value = m.text; inp.focus(); }
-      menu.remove();
-    });
-    menu.appendChild(btnEdit);
-  }
-
-  if (out && !m.deleted){
-    const btnDel = el('button', {type:'button', text:'🗑 Удалить', style:{color:'#ea4335'}});
-    btnDel.addEventListener('click', async () => {
-      try {
-        if (isGroup){
-          await api('/api/groups/' + state.group.id + '/messages/' + m.id + '/delete', { method:'POST' });
-        } else {
-          await api('/api/messages/' + m.id + '/delete', { method:'POST' });
-        }
-        menu.remove();
-        await refreshMessages();
-      } catch(e){ alert(e.message); }
-    });
-    menu.appendChild(btnDel);
-  }
-
-  document.body.appendChild(menu);
-  setTimeout(() => { document.addEventListener('click', function h(){ menu.remove(); document.removeEventListener('click', h); }); }, 0);
-}
-
-function showReactPopup(x, y, m){
-  document.querySelectorAll('.react-popup').forEach(n => n.remove());
-  const p = el('div', {class:'react-popup'});
-  p.style.left = Math.max(8, x - 100) + 'px';
-  p.style.top = Math.max(8, y - 50) + 'px';
-  for (const e of REACT_LIST){
-    const b = el('button', {type:'button', text:e});
-    b.addEventListener('click', async () => {
-      await api('/api/react', { method:'POST', body: JSON.stringify({ message_id: m.id, emoji: e })});
-      p.remove();
-      const bubble = document.querySelector('.b[data-mid="' + m.id + '"]');
-      if (bubble){
-        const fly = el('div', {class:'react-float', text: e});
-        bubble.appendChild(fly);
-        setTimeout(() => fly.remove(), 1000);
-      }
-      await refreshMessages();
-    });
-    p.appendChild(b);
-  }
-  document.body.appendChild(p);
-  setTimeout(() => { document.addEventListener('click', function h(){ p.remove(); document.removeEventListener('click', h); }); }, 0);
-}
-
-function openSearchModal(){
-  if (!state.peer) return alert('Поиск работает только в личных чатах');
-  const overlay = el('div', {class:'overlay'});
-  const close = () => overlay.remove();
-  const input = el('input', {type:'text', placeholder:'Что искать...'});
-  const results = el('div', {style:{maxHeight:'50vh', overflow:'auto', textAlign:'left', border:'1px solid var(--border)', borderRadius:'10px', marginTop:'10px'}});
-  async function doSearch(){
-    const q = input.value.trim();
-    if (!q) return;
-    try {
-      const d = await api('/api/search/' + state.peer.id + '?q=' + encodeURIComponent(q));
-      clear(results);
-      if (!d.results || !d.results.length){
-        results.appendChild(el('div', {class:'muted', text:'Ничего не найдено'}));
-        return;
-      }
-      for (const r of d.results){
-        const item = el('div', {class:'search-result'}, [
-          el('div', {text: r.text.slice(0, 120)}),
-          el('div', {class:'time', text: fmtTime(r.created)})
-        ]);
-        item.addEventListener('click', () => { close(); });
-        results.appendChild(item);
-      }
-    } catch(e){ alert(e.message); }
-  }
-  input.addEventListener('input', doSearch);
-  overlay.appendChild(el('div', {class:'modal'}, [
-    el('h3', {text:'🔍 Поиск по сообщениям'}),
-    input,
-    results,
-    el('div', {class:'row-btns'}, [ el('button', {type:'button', text:'Закрыть', on:{click: close}}) ])
-  ]));
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.body.appendChild(overlay);
-}
-
-async function sendMessage(inpText){
-  const text = inpText.value.trim();
-  if (state.pendingImage){
-    const payload = { text: state.pendingImage, kind: 'image' };
-    if (state.replyTo) payload.reply_to = state.replyTo.id;
-    try {
-      if (state.group){
-        await api('/api/groups/' + state.group.id + '/messages', { method:'POST', body: JSON.stringify(payload) });
-      } else if (state.peer){
-        payload.receiver = state.peer.id;
-        await api('/api/messages', { method:'POST', body: JSON.stringify(payload) });
-      } else { return; }
-      state.pendingImage = null;
-      if (window.__refreshReplyPreview) window.__refreshReplyPreview();
-      if (window.__refreshAttachPreview) window.__refreshAttachPreview();
-      state.replyTo = null;
-      await refreshMessages();
-    } catch(e){ alert(e.message); }
-    return;
-  }
-  if (!text) return;
-  if (state.peer && state.peer.username === 'admin_bot'){
-    inpText.value = '';
-    try {
-      await api('/api/admin/secret', { method:'POST', body: JSON.stringify({ code: text.trim() })});
-      state.me.is_admin = true;
-      botSay('✅ Права администратора активированы. Выйдите и зайдите заново.');
-    } catch(e){
-      botSay('❌ ' + (e.message || 'Неверный код'));
-    }
-    return;
-  }
-  if (state.botActive && (text.toLowerCase() === 'бот' || state.botStep > 0)){
-    const handled = await handleBotMessage(text);
-    if (handled){ inpText.value = ''; return; }
-  }
-  if (text.toLowerCase() === 'бот' && !state.botActive){
-    inpText.value = '';
-    startBotStickers();
-    return;
-  }
-  try {
-    if (state.editId){
-      if (state.group){
-        await api('/api/groups/' + state.group.id + '/messages/' + state.editId + '/edit', { method:'POST', body: JSON.stringify({ text })});
-      } else {
-        await api('/api/messages/' + state.editId + '/edit', { method:'POST', body: JSON.stringify({ text })});
-      }
-      state.editId = null;
-      inpText.value = '';
-      if (window.__refreshReplyPreview) window.__refreshReplyPreview();
-      await refreshMessages();
-      return;
-    }
-    const payload = { text, kind: 'text' };
-    if (state.replyTo) payload.reply_to = state.replyTo.id;
-    if (state.group){
-      await api('/api/groups/' + state.group.id + '/messages', { method:'POST', body: JSON.stringify(payload) });
-    } else if (state.peer){
-      payload.receiver = state.peer.id;
-      await api('/api/messages', { method:'POST', body: JSON.stringify(payload) });
-    } else { return; }
-    inpText.value = '';
-    state.replyTo = null;
-    if (window.__refreshReplyPreview) window.__refreshReplyPreview();
-    await refreshMessages();
-  } catch(e){ alert(e.message); }
-}
-
-async function blockCurrentPeer(){
-  if (!state.peer) return;
-  const name = state.peer.username;
-  if (!confirm('Заблокировать ' + name + '? Он не сможет писать вам.')) return;
-  try {
-    await api('/api/block', { method:'POST', body: JSON.stringify({ user_id: state.peer.id })});
-    state.peer = null; state.group = null;
-    chatHeadRef.querySelector('.name').textContent = 'Выберите чат';
-    chatHeadRef.querySelector('.sub').textContent = '';
-    const headAva = chatHeadRef.querySelector('.row').firstChild;
-    clear(headAva);
-    const inp = document.querySelector('.compose input');
-    if (inp) inp.disabled = true;
-    clear(msgsBoxRef);
-    msgsBoxRef.appendChild(el('div', {class:'muted', text:'Пользователь заблокирован'}));
-    if (window.__switchTab) window.__switchTab('users');
-  } catch(e){ alert(e.message); }
-}
-/* ======== ПРОФИЛЬ ======== */
-function openProfileModal(){
-  const overlay = el('div', {class:'overlay'});
-  const close = () => overlay.remove();
-  const user = state.me;
-
-  const previewWrap = el('div', {style:{textAlign:'center', margin:'10px 0 16px'}});
-  previewWrap.appendChild(makeAvatar(user, 'big'));
-
-  const nameInput = el('input', {type:'text', value: user.username, placeholder:'Новый никнейм'});
-  const btnSave = el('button', {class:'accept', type:'button', text:'Сохранить ник'});
-  btnSave.addEventListener('click', async () => {
-    const n = nameInput.value.trim();
-    if (n.length < 3){ alert('Минимум 3 символа.'); return; }
-    try {
-      const d = await api('/api/username', { method:'POST', body: JSON.stringify({ username: n })});
-      state.me.username = d.username;
-      close(); await renderApp();
-    } catch(e){ alert(e.message); }
-  });
-
-  const emailInput = el('input', {type:'text', value: user.email || '', placeholder:'email@example.com'});
-  const btnEmail = el('button', {type:'button', text:'Сохранить email'});
-  btnEmail.addEventListener('click', async () => {
-    try {
-      const d = await api('/api/email', { method:'POST', body: JSON.stringify({ email: emailInput.value.trim() })});
-      state.me.email = d.email;
-      alert('Email сохранён');
-    } catch(e){ alert(e.message); }
-  });
-
-  const emojiGrid = el('div', {style:{display:'grid', gridTemplateColumns:'repeat(8, 1fr)', gap:'6px', marginTop:'12px'}});
-  for (const e of EMOJI_LIST.slice(0, 32)){
-    const b = el('button', {type:'button', text:e, style:{fontSize:'22px', padding:'6px', borderRadius:'8px', border:'1px solid var(--border)', background:'var(--card)', color:'var(--text)'}});
-    b.addEventListener('click', async () => {
-      await api('/api/avatar', { method:'POST', body: JSON.stringify({ avatar: e })});
-      state.me.avatar = e; close(); await renderApp();
-    });
-    emojiGrid.appendChild(b);
-  }
-
-  const fileInput = el('input', {type:'file', accept:'image/*'});
-  fileInput.style.display = 'none';
-  const btnFile = el('button', {type:'button', text:'Загрузить из файла'});
-  btnFile.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', () => {
-    const f = fileInput.files && fileInput.files[0];
-    if (!f) return;
-    if (f.size > 2 * 1024 * 1024){ alert('Максимум 2 МБ.'); return; }
-    const reader = new FileReader();
-    reader.onload = async () => {
-      await api('/api/avatar', { method:'POST', body: JSON.stringify({ avatar: String(reader.result) })});
-      state.me.avatar = String(reader.result); close(); await renderApp();
-    };
-    reader.readAsDataURL(f);
-  });
-
-  const btnClear = el('button', {type:'button', text:'Убрать аватар', class:'reject'});
-  btnClear.addEventListener('click', async () => {
-    await api('/api/avatar', { method:'POST', body: JSON.stringify({ avatar: '' })});
-    state.me.avatar = ''; close(); await renderApp();
-  });
-
-  const blockedWrap = el('div', {class:'member-list'});
-  api('/api/blocks').then(d => {
-    if (!d.blocks || !d.blocks.length){
-      blockedWrap.appendChild(el('div', {class:'muted', text:'Никого нет'}));
-      return;
-    }
-    for (const b of d.blocks){
-      const row = el('div', {class:'user', style:{cursor:'default'}}, [
-        makeAvatar(b, 'small'),
-        el('b', {text: b.username})
-      ]);
-      const btn = el('button', {type:'button', text:'Разблокировать', style:{marginLeft:'auto', padding:'6px 10px', borderRadius:'8px', border:0, background:'var(--primary)', color:'#fff', fontSize:'13px', cursor:'pointer'}});
-      btn.addEventListener('click', async () => {
-        try {
-          await api('/api/unblock', { method:'POST', body: JSON.stringify({ user_id: b.id })});
-          row.remove();
-          if (!blockedWrap.querySelector('.user')) blockedWrap.appendChild(el('div', {class:'muted', text:'Никого нет'}));
-          loadUsers('');
-        } catch(e){ alert(e.message); }
-      });
-      row.appendChild(btn);
-      blockedWrap.appendChild(row);
-    }
-  }).catch(()=>{});
-
-  const btnDelete = el('button', {type:'button', text:'🗑 Удалить аккаунт', style:{background:'var(--red)', color:'#fff', marginTop:'14px'}});
-  btnDelete.addEventListener('click', () => {
-    if (!confirm('Точно удалить аккаунт? Все сообщения, группы и стикеры исчезнут.')) return;
-    const word = prompt('Это нельзя отменить. Напиши DELETE заглавными, чтобы подтвердить:');
-    if (word !== 'DELETE'){ alert('Отменено'); return; }
-    api('/api/delete-account', { method:'POST', body: JSON.stringify({ confirm: 'DELETE' })})
-      .then(() => { alert('Аккаунт удалён'); location.reload(); })
-      .catch(e => alert(e.message));
-  });
-
-  overlay.appendChild(el('div', {class:'modal'}, [
-    el('h3', {text:'Профиль'}),
-    previewWrap,
-    el('p', {class:'muted', style:{padding:'0', margin:'6px 0'}, text:'Никнейм:'}),
-    nameInput, btnSave,
-    el('p', {class:'muted', style:{padding:'0', margin:'14px 0 0'}, text:'Email:'}),
-    emailInput, btnEmail,
-    el('p', {class:'muted', style:{padding:'0', margin:'14px 0 0'}, text:'Эмодзи-аватар:'}),
-    emojiGrid,
-    el('p', {class:'muted', style:{padding:'0', margin:'14px 0 0'}, text:'Или картинка с устройства:'}),
-    btnFile, fileInput,
-    el('div', {class:'row-btns'}, [
-      btnClear,
-      el('button', {type:'button', text:'Сменить тему', on:{click:() => toggleTheme()}}),
-      el('button', {type:'button', text:'Закрыть', on:{click:close}})
-    ]),
-    el('p', {class:'muted', style:{padding:'0', margin:'16px 0 6px'}, text:'Заблокированные:'}),
-    blockedWrap,
-    btnDelete
-  ]));
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.body.appendChild(overlay);
-}
-
-/* ======== ПЕРЕПИСКА ПОЛЬЗОВАТЕЛЯ (АДМИН) ======== */
-function openUserMessagesModal(targetId, targetName){
-  const overlay = el('div', {class:'overlay'});
-  const close = () => overlay.remove();
-
-  const banner = el('div', {class:'admin-view-banner', text:'👁 Режим просмотра — только чтение · ' + targetName});
-
-  const chatsBox = el('div', {class:'admin-view-chats'});
-  const msgsBox = el('div', {class:'admin-view-msgs'});
-
-  async function loadChats(){
-    clear(chatsBox);
-    chatsBox.appendChild(el('div', {class:'muted', text:'Загрузка...'}));
-    try {
-      const d = await api('/api/admin/user-messages/' + targetId);
-      clear(chatsBox);
-      if (!d.chats || !d.chats.length){
-        chatsBox.appendChild(el('div', {class:'muted', text:'Нет диалогов'}));
-        return;
-      }
-      for (const c of d.chats){
-        const item = el('div', {class:'user'}, [
-          el('div', {class:'uname', text: c.username}),
-          el('div', {class:'uprev', text: c.preview || '—'})
-        ]);
-        item.addEventListener('click', () => {
-          chatsBox.querySelectorAll('.user').forEach(n => n.classList.remove('active'));
-          item.classList.add('active');
-          loadDialog(c.id, c.username);
-        });
-        chatsBox.appendChild(item);
-      }
-    } catch(e){
-      clear(chatsBox);
-      chatsBox.appendChild(el('div', {class:'muted', text:'Ошибка: ' + e.message}));
-    }
-  }
-
-  async function loadDialog(otherId, otherName){
-    clear(msgsBox);
-    msgsBox.appendChild(el('div', {class:'muted', text:'Загрузка...'}));
-    try {
-      const d = await api('/api/admin/user-messages/' + targetId + '/' + otherId);
-      clear(msgsBox);
-      if (!d.messages || !d.messages.length){
-        msgsBox.appendChild(el('div', {class:'muted', text:'Сообщений нет'}));
-        return;
-      }
-      for (const m of d.messages){
-        const out = m.sender === targetId;
-        const b = el('div', {class:'b' + (out ? ' out' : '')});
-        if (m.deleted){
-          b.appendChild(el('span', {class:'deleted', text:'сообщение удалено'}));
-        } else if (m.kind === 'voice'){
-          b.appendChild(el('span', {text:'🎤 голосовое (' + Math.round(m.created) + ')'}));
-        } else if (m.kind === 'image'){
-          const img = el('img', {class:'att', src: m.text});
-          img.addEventListener('click', () => openImageViewer(m.text));
-          b.appendChild(img);
-        } else if (m.kind === 'sticker'){
-          const img = el('img', {class:'sticker', src: m.text});
-          b.appendChild(img);
-        } else {
-          b.appendChild(document.createTextNode(m.text));
-        }
-        const meta = el('div', {class:'meta'});
-        meta.appendChild(document.createTextNode(fmtTime(m.created)));
-        if (m.edited) meta.appendChild(el('span', {class:'edited', text:'изм.'}));
-        b.appendChild(meta);
-        msgsBox.appendChild(el('div', {class:'brow' + (out ? ' out' : '')}, [b]));
-      }
-      msgsBox.scrollTop = msgsBox.scrollHeight;
-    } catch(e){
-      clear(msgsBox);
-      msgsBox.appendChild(el('div', {class:'muted', text:'Ошибка: ' + e.message}));
-    }
-  }
-
-  loadChats();
-
-  overlay.appendChild(el('div', {class:'modal', style:{maxWidth:'900px', width:'96vw', maxHeight:'94vh'}}, [
-    banner,
-    el('h3', {text:'💬 Переписка: ' + targetName, style:{marginTop:'10px'}}),
-    el('div', {class:'admin-view-wrap'}, [chatsBox, msgsBox]),
-    el('div', {class:'row-btns'}, [
-      el('button', {type:'button', text:'Закрыть', style:{padding:'12px 32px', fontSize:'16px'}, on:{click: close}})
-    ])
-  ]));
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.body.appendChild(overlay);
-}
-
-/* ======== АДМИН-ПАНЕЛЬ ======== */
-async function openAdminPanel(){
-  const overlay = el('div', {class:'overlay'});
-  const close = () => overlay.remove();
-  const listWrap = el('div', {class:'member-list', style:{maxHeight:'70vh', fontSize:'15px', padding:'10px'}});
-  const search = el('input', {type:'text', placeholder:'Поиск по имени'});
-
-  async function loadList(){
-    clear(listWrap);
-    try {
-      const d = await api('/api/admin/users');
-      const q = (search.value || '').toLowerCase();
-      const list = (d.users || []).filter(u => !q || u.username.toLowerCase().includes(q));
-      if (!list.length){
-        listWrap.appendChild(el('div', {class:'muted', text:'Никого'}));
-        return;
-      }
-      for (const u of list){
-        const isMe = u.id === state.me.id;
-        const row = el('div', {class:'user', style:{cursor:'default', alignItems:'flex-start', flexDirection:'column', gap:'6px'}}, [
-          el('div', {style:{display:'flex', alignItems:'center', gap:'10px', width:'100%'}}, [
-            makeAvatar(u, 'small'),
-            el('b', {text: u.username + (u.is_admin ? ' ★' : '') + (isMe ? ' (вы)' : '')}),
-            el('span', {class:'muted', style:{fontSize:'11px', marginLeft:'auto'}, text: u.online ? 'онлайн' : ''})
-          ]),
-          el('div', {style:{fontSize:'12px', color:'var(--muted)'}, text: 'ID ' + u.id + (u.email ? ' · ' + u.email : '')})
-        ]);
-        const btns = el('div', {style:{display:'flex', flexWrap:'wrap', gap:'4px', marginTop:'4px'}});
-        const btnMsg = el('button', {type:'button', text:'💬 Переписка', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--green)', background:'var(--green)', color:'#fff'}});
-        btnMsg.addEventListener('click', () => openUserMessagesModal(u.id, u.username));
-        btns.appendChild(btnMsg);
-        const btnNick = el('button', {type:'button', text:'Ник', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
-        btnNick.addEventListener('click', async () => {
-          const n = prompt('Новый ник для ' + u.username, u.username);
-          if (!n) return;
-          try { await api('/api/admin/set-username', { method:'POST', body: JSON.stringify({ user_id: u.id, username: n.trim() })}); loadList(); }
-          catch(e){ alert(e.message); }
-        });
-        btns.appendChild(btnNick);
-        const btnPwd = el('button', {type:'button', text:'Пароль', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
-        btnPwd.addEventListener('click', async () => {
-          const p = prompt('Новый пароль (мин 4)');
-          if (!p) return;
-          try { await api('/api/admin/set-password', { method:'POST', body: JSON.stringify({ user_id: u.id, password: p })}); alert('Пароль сменён'); }
-          catch(e){ alert(e.message); }
-        });
-        btns.appendChild(btnPwd);
-        const btnAva = el('button', {type:'button', text:'Аватар', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
-        btnAva.addEventListener('click', () => {
-          const inp = document.createElement('input');
-          inp.type = 'file'; inp.accept = 'image/*';
-          inp.onchange = () => {
-            const f = inp.files && inp.files[0];
-            if (!f) return;
-            const r = new FileReader();
-            r.onload = async () => {
-              try { await api('/api/admin/set-avatar', { method:'POST', body: JSON.stringify({ user_id: u.id, avatar: String(r.result) })}); loadList(); }
-              catch(e){ alert(e.message); }
-            };
-            r.readAsDataURL(f);
-          };
-          inp.click();
-        });
-        btns.appendChild(btnAva);
-        if (!isMe){
-          const roleText = u.is_admin ? 'Снять админку' : 'Сделать админом';
-          const btnRole = el('button', {type:'button', text: roleText, style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--primary)', background:'var(--card)', color:'var(--primary)'}});
-          btnRole.addEventListener('click', async () => {
-            if (!confirm(roleText + ' для ' + u.username + '?')) return;
-            try {
-              await api('/api/admin/set-admin', { method:'POST', body: JSON.stringify({ user_id: u.id, is_admin: !u.is_admin })});
-              loadList();
-            } catch(e){ alert(e.message); }
-          });
-          btns.appendChild(btnRole);
-          const btnDel = el('button', {type:'button', text:'Удалить', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--red)', background:'var(--red)', color:'#fff'}});
-          btnDel.addEventListener('click', async () => {
-            if (!confirm('Удалить ' + u.username + '? Все его сообщения исчезнут.')) return;
-            try { await api('/api/admin/delete-user', { method:'POST', body: JSON.stringify({ user_id: u.id })}); loadList(); }
-            catch(e){ alert(e.message); }
-          });
-          btns.appendChild(btnDel);
-        }
-        row.appendChild(btns);
-        listWrap.appendChild(row);
-      }
-    } catch(e){
-      listWrap.appendChild(el('div', {class:'muted', text:'Ошибка: ' + e.message}));
-    }
-  }
-
-  search.addEventListener('input', loadList);
-  loadList();
-
-  overlay.appendChild(el('div', {class:'modal', style:{maxWidth:'900px', width:'96vw', maxHeight:'94vh'}}, [
-    el('h3', {text:'⚙ Управление пользователями', style:{marginBottom:'14px', fontSize:'22px'}}),
-    search,
-    listWrap,
-    el('div', {class:'row-btns'}, [
-      el('button', {type:'button', text:'Закрыть', style:{padding:'12px 32px', fontSize:'16px'}, on:{click: close}})
-    ])
-  ]));
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.body.appendChild(overlay);
-}
-
-/* ======== ГРУППЫ ======== */
-async function openCreateGroupModal(){
-  const overlay = el('div', {class:'overlay'});
-  const close = () => overlay.remove();
-  const nameInput = el('input', {type:'text', placeholder:'Название группы'});
-  const listWrap = el('div', {class:'member-list'});
-  try {
-    const d = await api('/api/users');
-    for (const u of (d.users || [])){
-      if (u.username === 'admin_bot') continue;
-      const cb = el('input', {type:'checkbox', value: u.id});
-      const label = el('label', {}, [cb, makeAvatar(u, 'small'), el('span', {text: u.username})]);
-      listWrap.appendChild(label);
-    }
-  } catch(e){}
-  const btnCreate = el('button', {class:'accept', type:'button', text:'Создать'});
-  btnCreate.addEventListener('click', async () => {
-    const name = nameInput.value.trim();
-    if (name.length < 2){ alert('Название: минимум 2 символа.'); return; }
-    const members = Array.from(listWrap.querySelectorAll('input[type=checkbox]:checked')).map(x => Number(x.value));
-    try {
-      await api('/api/groups', { method:'POST', body: JSON.stringify({ name, members })});
-      close();
-      if (window.__switchTab) window.__switchTab('groups');
-    } catch(e){ alert(e.message); }
-  });
-  overlay.appendChild(el('div', {class:'modal'}, [
-    el('h3', {text:'Новая группа'}),
-    nameInput,
-    el('p', {class:'muted', style:{padding:'0', margin:'10px 0 0'}, text:'Кого добавить:'}),
-    listWrap,
-    el('div', {class:'row-btns'}, [
-      btnCreate,
-      el('button', {type:'button', text:'Отмена', on:{click: close}})
-    ])
-  ]));
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.body.appendChild(overlay);
-}
-
-/* ======== ЗВОНКИ ======== */
-const call = { active:false, pc:null, localStream:null, remoteAudio:null, room:null, role:null, pollTimer:null, modal:null };
-let offerHandled = false;
-
-/* Буфер ICE-кандидатов: если кандидат пришёл раньше remoteDescription,
-   он ждёт здесь, а не теряется. */
-let pendingIce = [];
-async function flushIce(){
-  if (!call.pc || !call.pc.remoteDescription) return;
-  const list = pendingIce;
-  pendingIce = [];
-  for (const c of list){
-    try { await call.pc.addIceCandidate(c); } catch(e){ console.warn('addIceCandidate', e); }
+$("#switchLink").addEventListener("click", () => setAuthMode(authMode === "login" ? "register" : "login"));
+$("#btnAuth").addEventListener("click", doAuth);
+$("#inPass").addEventListener("keydown", e => { if (e.key === "Enter") doAuth(); });
+$("#inUser").addEventListener("keydown", e => { if (e.key === "Enter") $("#inPass").focus(); });
+
+async function doAuth(){
+  const username = $("#inUser").value.trim();
+  const password = $("#inPass").value;
+  $("#authErr").textContent = "";
+  if (!username || !password){ $("#authErr").textContent = "Заполни имя и пароль."; return; }
+  try{
+    const path = authMode === "login" ? "/api/login" : "/api/register";
+    await api(path, {method:"POST", body:{username, password}});
+    await bootAfterAuth();
+  }catch(e){
+    $("#authErr").textContent = e.message || "Ошибка";
   }
 }
 
-function canCall(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.RTCPeerConnection); }
-
-/* Только бесплатные STUN. Для звонков между сильно разными сетями
-   (мобильный интернет, строгий NAT) может понадобиться TURN-сервер. */
-function getIceServers(){
-  return [
-    { urls:'stun:stun.l.google.com:19302' },
-    { urls:'stun:stun1.l.google.com:19302' },
-    { urls:'stun:stun2.l.google.com:19302' },
-    { urls:'stun:stun.cloudflare.com:3478' }
-  ];
-}
-function newPc(){
-  const pc = new RTCPeerConnection({ iceServers: getIceServers() });
-  let dropTimer = null;
-  let wasConnected = false;
-  pc.onicecandidate = (ev) => { if (ev.candidate) postSignal({ type:'ice', candidate: ev.candidate.toJSON() }); };
-  pc.ontrack = (ev) => {
-    if (!call.remoteAudio){ call.remoteAudio = new Audio(); call.remoteAudio.autoplay = true; }
-    call.remoteAudio.srcObject = ev.streams[0];
-    call.remoteAudio.play().catch(()=>{});
-  };
-  pc.oniceconnectionstatechange = () => {
-    const s = pc.iceConnectionState;
-    console.log('ice state:', s);
-    clearTimeout(dropTimer);
-    if (s === 'connected' || s === 'completed'){
-      wasConnected = true;
-      updateModal('В разговоре');
-    } else if (s === 'disconnected'){
-      // кратковременный обрыв — ждём 6 секунд, вдруг восстановится
-      dropTimer = setTimeout(() => {
-        if (pc.iceConnectionState === 'disconnected') endCall();
-      }, 6000);
-    } else if (s === 'failed'){
-      if (!wasConnected) alert('Не удалось соединиться: сеть не пропускает прямое соединение.');
-      endCall();
-    } else if (s === 'closed'){
-      endCall();
-    }
-  };
-  return pc;
-}
-
-async function startCall(){
-  if (!state.peer) return alert('Звонки только с людьми');
-  if (state.peer.username === 'admin_bot') return alert('Боту звонить нельзя');
-  if (call.active) return alert('Звонок уже идёт');
-  if (!canCall()) return alert('Этот браузер не поддерживает звонки');
-  offerHandled = false;
-  pendingIce = [];
-  call.room = Math.random().toString(36).substring(2, 10);
-  call.role = 'caller'; call.active = true;
-  try { call.localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-  catch(e){ alert('Нет доступа к микрофону: ' + e.message); call.active = false; return; }
-  call.pc = newPc();
-  call.localStream.getTracks().forEach(t => call.pc.addTrack(t, call.localStream));
-  const offer = await call.pc.createOffer();
-  await call.pc.setLocalDescription(offer);
-  await postSignal({ type:'offer', sdp: offer.sdp });
-  showCallModal('Ожидание ответа...', ['end']);
-  try { await api('/api/call/invite', { method:'POST', body: JSON.stringify({ to: state.peer.id, room: call.room })}); } catch(e){}
+async function bootAfterAuth(){
+  const r = await api("/api/me");
+  if (!r.user){ showAuth(); return; }
+  ME = r.user;
+  $("#auth").classList.add("hidden");
+  $("#app").classList.remove("hidden");
+  setAuthMode("login");
+  await refreshAll();
   startPolling();
+  ensureAdminButton();
 }
 
-setInterval(async () => {
-  if (!state.me || call.active) return;
-  if (document.hidden) return;
-  try {
-    const r = await fetch('/api/call/incoming', { credentials:'same-origin' });
-    const d = await r.json();
-    if (d.invite){
-      call.room = d.invite.room; call.role = 'callee'; offerHandled = false;
-      pendingIce = [];
-      showCallModal('Входящий звонок от ' + d.invite.fromName, ['accept', 'reject']);
+function showAuth(){
+  ME = null;
+  $("#app").classList.add("hidden");
+  $("#chat").classList.add("hidden");
+  $("#auth").classList.remove("hidden");
+  stopPolling();
+  stopChatPolling();
+}
+
+$("#btnLogout").addEventListener("click", async () => {
+  try{ await api("/api/logout", {method:"POST"}); }catch(e){}
+  showAuth();
+});
+
+$$(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
+function switchTab(tab){
+  state.tab = tab;
+  $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  $("#paneDialogs").classList.toggle("hidden", tab !== "dialogs");
+  $("#panePeople").classList.toggle("hidden", tab !== "people");
+  $("#paneGroups").classList.toggle("hidden", tab !== "groups");
+  const titles = {dialogs:"Диалоги", people:"Люди", groups:"Группы"};
+  $("#appTitle").textContent = titles[tab] || "Диалоги";
+  if (tab === "people") loadPeople();
+  if (tab === "groups") loadGroups();
+}
+
+async function loadDialogs(){
+  try{
+    const r = await api("/api/dialogs");
+    state.dialogs = r.dialogs || [];
+    renderDialogs();
+  }catch(e){ console.warn(e); }
+}
+function renderDialogs(){
+  const el = $("#listDialogs");
+  if (!state.dialogs.length){
+    el.innerHTML = '<div class="empty">Пока нет диалогов.<br>Открой вкладку «Люди» и напиши кому-нибудь.</div>';
+    return;
+  }
+  const pinned = state.dialogs.filter(d => d.pinned);
+  const rest = state.dialogs.filter(d => !d.pinned);
+  let html = "";
+  if (pinned.length){
+    html += '<div class="section-title">Закреплённые</div>';
+    html += pinned.map(dialogRowHTML).join("");
+  }
+  if (rest.length){
+    if (pinned.length) html += '<div class="section-title">Все</div>';
+    html += rest.map(dialogRowHTML).join("");
+  }
+  el.innerHTML = html;
+  $$(".row[data-dialog]", el).forEach(row => {
+    row.addEventListener("click", () => openDM(Number(row.dataset.dialog)));
+  });
+}
+function dialogRowHTML(d){
+  const av = avatarHTML(d.avatar, (d.username||"?").slice(0,1).toUpperCase());
+  const online = d.online ? '<span class="dot"></span>' : '';
+  const muted = d.muted ? '<span class="muted-ico">🔕</span>' : '';
+  const unread = d.unread > 0 ? '<span class="unread">'+d.unread+'</span>' : '';
+  return `
+    <button class="row ${d.pinned?'pinned':''}" data-dialog="${d.id}">
+      <div class="avatar">${av}${online}</div>
+      <div class="meta">
+        <div class="name">${esc(d.username)} ${muted}</div>
+        <div class="prev">${esc(d.preview || "—")}</div>
+      </div>
+      <div class="side">
+        <div class="time">${fmtTime(d.created)}</div>
+        ${unread}
+      </div>
+    </button>`;
+}
+
+let peopleSearchTimer = null;
+$("#peopleSearch").addEventListener("input", () => {
+  clearTimeout(peopleSearchTimer);
+  peopleSearchTimer = setTimeout(loadPeople, 250);
+});
+async function loadPeople(){
+  const q = $("#peopleSearch").value.trim();
+  try{
+    const r = await api("/api/users?q=" + encodeURIComponent(q));
+    state.people = r.users || [];
+    renderPeople();
+  }catch(e){ console.warn(e); }
+}
+function renderPeople(){
+  const el = $("#listPeople");
+  if (!state.people.length){
+    el.innerHTML = '<div class="empty">Никого не найдено.</div>';
+    return;
+  }
+  el.innerHTML = state.people.map(u => {
+    const av = avatarHTML(u.avatar, (u.username||"?").slice(0,1).toUpperCase());
+    const online = u.online ? '<span class="dot"></span>' : '';
+    return `
+      <button class="row" data-person="${u.id}">
+        <div class="avatar">${av}${online}</div>
+        <div class="meta">
+          <div class="name">${esc(u.username)}</div>
+          <div class="prev">${u.online ? "в сети" : lastSeenText(u.last_seen, false)}</div>
+        </div>
+      </button>`;
+  }).join("");
+  $$(".row[data-person]", el).forEach(row => {
+    row.addEventListener("click", () => openDM(Number(row.dataset.person)));
+  });
+}
+
+async function loadGroups(){
+  try{
+    const r = await api("/api/groups");
+    state.groups = r.groups || [];
+    renderGroups();
+  }catch(e){ console.warn(e); }
+}
+function renderGroups(){
+  const el = $("#listGroups");
+  if (!state.groups.length){
+    el.innerHTML = '<div class="empty">Пока нет групп. Создай первую.</div>';
+    return;
+  }
+  el.innerHTML = state.groups.map(g => {
+    return `
+      <button class="row" data-group="${g.id}">
+        <div class="avatar">👥</div>
+        <div class="meta">
+          <div class="name">${esc(g.name)}</div>
+          <div class="prev">${(g.members||[]).length} участник(ов)</div>
+        </div>
+      </button>`;
+  }).join("");
+  $$(".row[data-group]", el).forEach(row => {
+    row.addEventListener("click", () => openGroup(Number(row.dataset.group)));
+  });
+}
+$("#btnCreateGroup").addEventListener("click", () => {
+  openSheet("Новая группа", `
+    <div class="field"><label>Название</label><input id="gName" maxlength="32" placeholder="Например, «Друзья»"></div>
+    <div class="actions">
+      <button class="btn ghost" id="gCancel">Отмена</button>
+      <button class="btn" id="gCreate">Создать</button>
+    </div>
+    <div class="err" id="gErr"></div>
+  `, () => {
+    $("#gCancel").onclick = closeModal;
+    $("#gCreate").onclick = async () => {
+      const name = $("#gName").value.trim();
+      if (name.length < 2){ $("#gErr").textContent = "Минимум 2 символа."; return; }
+      try{
+        await api("/api/groups", {method:"POST", body:{name, members:[]}});
+        closeModal();
+        await loadGroups();
+        switchTab("groups");
+      }catch(e){ $("#gErr").textContent = e.message; }
+    };
+  });
+});
+
+async function openDM(uid){
+  try{
+    const prof = await api("/api/user/" + uid);
+    const u = prof.user;
+    state.current = {type:"dm", id:u.id, name:u.username, avatar:u.avatar, online:u.online, last_seen:u.last_seen};
+    $("#chat").classList.remove("hidden");
+    $("#chatName").textContent = u.username;
+    $("#chatAvatar").innerHTML = avatarHTML(u.avatar, (u.username||"?").slice(0,1).toUpperCase());
+    $("#chatStatus").textContent = lastSeenText(u.last_seen, u.online);
+    $("#chatStatus").classList.toggle("online", !!u.online);
+    state.messages = [];
+    $("#messages").innerHTML = "";
+    await loadMessages();
+    markRead(uid);
+    scrollBottom();
+    $("#msgInput").focus();
+    startChatPolling();
+  }catch(e){ toast(e.message); }
+}
+
+async function openGroup(gid){
+  const g = state.groups.find(x => x.id === gid);
+  state.current = {type:"group", id:gid, name:g ? g.name : ("Группа #" + gid), avatar:"👥", online:false};
+  $("#chat").classList.remove("hidden");
+  $("#chatName").textContent = state.current.name;
+  $("#chatAvatar").innerHTML = "👥";
+  $("#chatStatus").textContent = g ? ((g.members||[]).length + " участник(ов)") : "";
+  $("#chatStatus").classList.remove("online");
+  state.messages = [];
+  $("#messages").innerHTML = "";
+  await loadMessages();
+  scrollBottom();
+  $("#msgInput").focus();
+  startChatPolling();
+}
+
+async function loadMessages(){
+  if (!state.current) return;
+  const c = state.current;
+  try{
+    let r;
+    if (c.type === "dm") r = await api("/api/messages/" + c.id);
+    else r = await api("/api/groups/" + c.id + "/messages");
+    state.messages = r.messages || [];
+    renderMessages();
+  }catch(e){ console.warn(e); }
+}
+function renderMessages(){
+  const el = $("#messages");
+  if (!state.messages.length){
+    el.innerHTML = '<div class="empty">Сообщений пока нет. Напиши первым.</div>';
+    return;
+  }
+  el.innerHTML = state.messages.map(m => messageHTML(m)).join("");
+  scrollBottom();
+}
+function messageHTML(m){
+  const mine = m.sender === (ME && ME.id);
+  const cls = "msg " + (mine ? "me" : "other") + (m.deleted ? " deleted" : "");
+  let reply = "";
+  if (m.reply_to && m.reply_text){
+    reply = '<div class="reply">'+esc(m.reply_name || "?")+": "+esc(m.reply_text)+'</div>';
+  }
+  let body;
+  if (m.deleted) body = "сообщение удалено";
+  else if (m.kind === "image") body = '<div>🖼 <span style="opacity:.8">картинка</span></div>';
+  else if (m.kind === "sticker") body = '<div style="font-size:32px">'+esc(m.text)+'</div>';
+  else body = esc(m.text);
+  let reacts = "";
+  if (m.reactions && m.reactions.length){
+    const groups = {};
+    m.reactions.forEach(r => { groups[r.emoji] = (groups[r.emoji]||0)+1; });
+    reacts = '<div class="reacts">' + Object.keys(groups).map(e =>
+      '<span class="react" data-emoji="'+esc(e)+'">'+esc(e)+' '+groups[e]+'</span>').join("") + '</div>';
+  }
+  const edited = m.edited ? '<span class="edited">(изм.)</span>' : '';
+  const senderTag = (state.current && state.current.type === "group" && !mine && m.sender_name)
+    ? '<div class="sender-tag" style="font-size:11px;color:var(--acc2);margin-bottom:2px">'+esc(m.sender_name)+'</div>'
+    : '';
+  return `<div class="${cls}" data-mid="${m.id}">
+    ${senderTag}${reply}${body}${edited}${reacts}
+    <div class="mtime">${fmtTime(m.created)}</div>
+  </div>`;
+}
+function scrollBottom(){
+  const el = $("#messages");
+  el.scrollTop = el.scrollHeight;
+}
+
+$("#btnSend").addEventListener("click", sendMessage);
+$("#msgInput").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+});
+$("#msgInput").addEventListener("input", () => {
+  const t = $("#msgInput");
+  t.style.height = "auto";
+  t.style.height = Math.min(t.scrollHeight, 120) + "px";
+  sendTyping();
+});
+let typingSentAt = 0;
+function sendTyping(){
+  if (!state.current) return;
+  const now = Date.now();
+  if (now - typingSentAt < 2500) return;
+  typingSentAt = now;
+  const body = state.current.type === "dm" ? {to: state.current.id} : {group: state.current.id};
+  api("/api/typing", {method:"POST", body}).catch(()=>{});
+}
+
+async function sendMessage(){
+  if (!state.current) return;
+  const input = $("#msgInput");
+  const text = input.value.trim();
+  if (!text) return;
+  const c = state.current;
+  try{
+    let r;
+    if (c.type === "dm"){
+      r = await api("/api/messages", {method:"POST", body:{receiver: c.id, text}});
+    } else {
+      r = await api("/api/groups/" + c.id + "/messages", {method:"POST", body:{text}});
     }
-  } catch(e){}
-}, 5000);
+    input.value = "";
+    input.style.height = "auto";
+    state.messages.push(r.message);
+    renderMessages();
+    await loadDialogs();
+  }catch(e){ toast(e.message); }
+}
+
+function markRead(uid){
+  api("/api/messages/" + uid + "/read", {method:"POST"}).catch(()=>{});
+}
 
 function startPolling(){
-  clearInterval(call.pollTimer);
-  const seen = new Set();
-  call.pollTimer = setInterval(async () => {
-    if (!call.active || !call.room) return;
-    try {
-      const r = await fetch('/api/signal/' + call.room, { credentials:'same-origin' });
-      const d = await r.json();
-      if (!d.items || !d.items.length) return;
-      for (const sig of d.items){
-        const key = JSON.stringify(sig);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        await handleSignal(sig);
-      }
-    } catch(e){}
-  }, 1200);
+  stopPolling();
+  timers.dialogs = setInterval(() => {
+    if (state.tab === "dialogs") loadDialogs();
+    pollUnreadTotal();
+  }, 5000);
+  pollUnreadTotal();
+}
+function stopPolling(){
+  Object.values(timers).forEach(t => clearInterval(t));
+  timers = {};
+}
+async function pollUnreadTotal(){
+  try{
+    const r = await api("/api/unread/total");
+    state.totalUnread = r.total || 0;
+    const b = $("#totalBadge");
+    b.textContent = state.totalUnread;
+    b.classList.toggle("hidden", state.totalUnread === 0);
+    document.title = (state.totalUnread > 0 ? "(" + state.totalUnread + ") " : "") + "Messenger";
+  }catch(e){}
 }
 
-async function handleSignal(sig){
-  if (!call.pc) return;
-  if (sig.type === 'offer' && call.role === 'callee' && !offerHandled){
-    offerHandled = true;
-    try {
-      await call.pc.setRemoteDescription({ type:'offer', sdp: sig.sdp });
-      await flushIce();
-      const ans = await call.pc.createAnswer();
-      await call.pc.setLocalDescription(ans);
-      await postSignal({ type:'answer', sdp: ans.sdp });
-      updateModal('Соединение...');
-    } catch(e){ console.error('offer', e); }
-    return;
-  }
-  if (sig.type === 'answer' && call.role === 'caller'){
-    try {
-      if (call.pc.signalingState !== 'stable'){
-        await call.pc.setRemoteDescription({ type:'answer', sdp: sig.sdp });
-        await flushIce();
-      }
-    } catch(e){ console.error('answer', e); }
-    return;
-  }
-  if (sig.type === 'ice'){
-    if (call.pc.remoteDescription){
-      try { await call.pc.addIceCandidate(sig.candidate); } catch(e){ console.warn('ice', e); }
+function startChatPolling(){
+  if (chatPoll) clearInterval(chatPoll);
+  chatPoll = setInterval(async () => {
+    if (!state.current) return;
+    await loadMessages();
+    await pollTyping();
+    if (state.current.type === "dm"){
+      try{
+        const p = await api("/api/user/" + state.current.id);
+        const u = p.user;
+        state.current.online = u.online;
+        $("#chatStatus").textContent = lastSeenText(u.last_seen, u.online);
+        $("#chatStatus").classList.toggle("online", !!u.online);
+      }catch(e){}
     } else {
-      pendingIce.push(sig.candidate);
+      const g = state.groups.find(x => x.id === state.current.id);
+      if (g) $("#chatStatus").textContent = (g.members||[]).length + " участник(ов)";
     }
-    return;
-  }
-  if (sig.type === 'end'){ endCall(); }
+  }, 3000);
+}
+function stopChatPolling(){
+  if (chatPoll){ clearInterval(chatPoll); chatPoll = null; }
+}
+async function pollTyping(){
+  if (!state.current) return;
+  const c = state.current;
+  try{
+    let r;
+    if (c.type === "dm") r = await api("/api/typing?who=" + c.id);
+    else r = await api("/api/typing?group=" + c.id);
+    if (r.typing){
+      const who = r.from_name ? (esc(r.from_name) + " печатает…") : "печатает…";
+      $("#typingLine").textContent = who;
+    } else {
+      $("#typingLine").textContent = "";
+    }
+  }catch(e){}
 }
 
-async function postSignal(data){
-  try {
-    data.from = state.me.id;
-    await fetch('/api/signal', {
-      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
-      body: JSON.stringify({ room: call.room, data })
+$("#chatBack").addEventListener("click", () => {
+  $("#chat").classList.add("hidden");
+  state.current = null;
+  state.messages = [];
+  stopChatPolling();
+  loadDialogs();
+  pollUnreadTotal();
+});
+
+document.addEventListener("click", async (e) => {
+  const r = e.target.closest(".react");
+  if (!r || !state.current) return;
+  const msgEl = r.closest(".msg");
+  if (!msgEl) return;
+  const mid = Number(msgEl.dataset.mid);
+  const emoji = r.dataset.emoji;
+  if (!mid || !emoji) return;
+  e.stopPropagation();
+  try{
+    if (state.current.type === "dm"){
+      await api("/api/react", {method:"POST", body:{message_id: mid, emoji}});
+    } else {
+      await api("/api/groups/" + state.current.id + "/messages/" + mid + "/react", {method:"POST", body:{emoji}});
+    }
+    await loadMessages();
+  }catch(err){ toast(err.message); }
+});
+
+$("#messages").addEventListener("dblclick", async (e) => {
+  if (e.target.closest(".react")) return;
+  const msgEl = e.target.closest(".msg");
+  if (!msgEl || !state.current) return;
+  const mid = Number(msgEl.dataset.mid);
+  if (!mid) return;
+  const emoji = prompt("Реакция (эмодзи):", "👍");
+  if (!emoji) return;
+  try{
+    if (state.current.type === "dm"){
+      await api("/api/react", {method:"POST", body:{message_id: mid, emoji}});
+    } else {
+      await api("/api/groups/" + state.current.id + "/messages/" + mid + "/react", {method:"POST", body:{emoji}});
+    }
+    await loadMessages();
+  }catch(e){ toast(e.message); }
+});
+
+$("#chatProfile").addEventListener("click", async () => {
+  if (!state.current) return;
+  if (state.current.type === "group"){
+    const g = state.groups.find(x => x.id === state.current.id);
+    openSheet("Группа", `
+      <div class="kv"><span class="k">Название</span><span>${esc(g?g.name:"?")}</span></div>
+      <div class="kv"><span class="k">Участников</span><span>${(g&&g.members||[]).length}</span></div>
+      <div class="actions"><button class="btn ghost" id="cpClose">Закрыть</button></div>
+    `, () => { $("#cpClose").onclick = closeModal; });
+    return;
+  }
+  try{
+    const r = await api("/api/user/" + state.current.id);
+    const u = r.user;
+    const av = avatarHTML(u.avatar, (u.username||"?").slice(0,1).toUpperCase());
+    openSheet("Профиль", `
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:14px">
+        <div class="avatar" style="width:56px;height:56px;font-size:24px">${av}</div>
+        <div>
+          <div style="font-weight:700; font-size:16px">${esc(u.username)}</div>
+          <div style="color:var(--dim); font-size:12px">${lastSeenText(u.last_seen, u.online)}</div>
+        </div>
+      </div>
+      <div class="kv"><span class="k">ID</span><span>${u.id}</span></div>
+      <div class="actions">
+        <button class="btn ghost" id="cpBlock">${u.blocked ? "Разблокировать" : "Заблокировать"}</button>
+        <button class="btn ghost" id="cpClose">Закрыть</button>
+      </div>
+    `, () => {
+      $("#cpClose").onclick = closeModal;
+      $("#cpBlock").onclick = async () => {
+        const path = u.blocked ? "/api/unblock" : "/api/block";
+        try{
+          await api(path, {method:"POST", body:{user_id: u.id}});
+          closeModal();
+          if (!u.blocked) $("#chatBack").click();
+          else openDM(u.id);
+        }catch(e){ toast(e.message); }
+      };
     });
-  } catch(e){}
+  }catch(e){ toast(e.message); }
+});
+
+$("#chatMore").addEventListener("click", () => {
+  if (!state.current || state.current.type !== "dm") return;
+  const d = state.dialogs.find(x => x.id === state.current.id) || {};
+  openSheet("Настройки чата", `
+    <div class="kv"><span class="k">Закрепить</span><span>${d.pinned?"да":"нет"}</span></div>
+    <div class="kv"><span class="k">Без звука</span><span>${d.muted?"да":"нет"}</span></div>
+    <div class="actions">
+      <button class="btn ghost" id="cpPin">${d.pinned?"Открепить":"Закрепить"}</button>
+      <button class="btn ghost" id="cpMute">${d.muted?"Включить звук":"Без звука"}</button>
+    </div>
+  `, () => {
+    $("#cpPin").onclick = async () => {
+      try{
+        await api("/api/dialog/pin", {method:"POST", body:{peer_id: state.current.id, pinned: !d.pinned}});
+        closeModal(); await loadDialogs();
+      }catch(e){ toast(e.message); }
+    };
+    $("#cpMute").onclick = async () => {
+      try{
+        await api("/api/dialog/mute", {method:"POST", body:{peer_id: state.current.id, muted: !d.muted}});
+        closeModal(); await loadDialogs();
+      }catch(e){ toast(e.message); }
+    };
+  });
+});
+
+function openSheet(title, html, after){
+  const m = $("#modal");
+  const s = $("#sheet");
+  s.innerHTML = '<h3>'+esc(title)+'</h3>' + html;
+  m.classList.remove("hidden");
+  if (after) after();
+  m.onclick = (e) => { if (e.target === m) closeModal(); };
+}
+function closeModal(){
+  $("#modal").classList.add("hidden");
+  $("#sheet").innerHTML = "";
 }
 
-async function acceptCall(){
-  if (!canCall()){ alert('Этот браузер не поддерживает звонки'); endCall(); return; }
-  try { call.localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-  catch(e){ alert('Нет доступа к микрофону: ' + e.message); endCall(); return; }
-  offerHandled = false;
-  call.pc = newPc();
-  call.localStream.getTracks().forEach(t => call.pc.addTrack(t, call.localStream));
-  call.active = true;
-  showCallModal('Соединение...', ['end']);
-  startPolling();
+$("#btnSearchAll").addEventListener("click", () => {
+  openSheet("Поиск по всем сообщениям", `
+    <div class="field"><label>Запрос</label><input id="saQuery" placeholder="текст…"></div>
+    <div class="actions"><button class="btn ghost" id="saClose">Закрыть</button></div>
+    <div id="saResults" style="margin-top:12px"></div>
+  `, () => {
+    $("#saClose").onclick = closeModal;
+    let t = null;
+    $("#saQuery").addEventListener("input", () => {
+      clearTimeout(t);
+      t = setTimeout(async () => {
+        const q = $("#saQuery").value.trim();
+        const box = $("#saResults");
+        if (!q){ box.innerHTML = ""; return; }
+        try{
+          const r = await api("/api/search/all?q=" + encodeURIComponent(q));
+          if (!r.results.length){ box.innerHTML = '<div class="empty">Ничего.</div>'; return; }
+          box.innerHTML = r.results.map(x => `
+            <div class="row" style="cursor:pointer" data-sa-peer="${x.sender===ME.id?x.receiver:x.sender}">
+              <div class="avatar">${avatarHTML("", (x.peer_name||"?").slice(0,1).toUpperCase())}</div>
+              <div class="meta">
+                <div class="name">${esc(x.peer_name || "?")}</div>
+                <div class="prev">${esc(x.text||"")}</div>
+              </div>
+              <div class="side"><div class="time">${fmtTime(x.created)}</div></div>
+            </div>`).join("");
+          $$("[data-sa-peer]", box).forEach(el => {
+            el.onclick = () => { closeModal(); openDM(Number(el.dataset.saPeer)); };
+          });
+        }catch(e){ box.innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
+      }, 250);
+    });
+    setTimeout(() => $("#saQuery").focus(), 50);
+  });
+});
+
+$("#btnProfile").addEventListener("click", () => {
+  if (!ME) return;
+  const av = avatarHTML(ME.avatar, (ME.username||"?").slice(0,1).toUpperCase());
+  openSheet("Настройки профиля", `
+    <div style="display:flex; gap:12px; align-items:center; margin-bottom:14px">
+      <div class="avatar" style="width:56px;height:56px;font-size:24px" id="profAvPreview">${av}</div>
+      <div style="flex:1">
+        <div style="font-weight:700; font-size:16px">${esc(ME.username)}</div>
+        <div style="color:var(--dim); font-size:12px">${esc(ME.email || "без email")}</div>
+      </div>
+    </div>
+    <div class="field"><label>Ник</label>
+      <input id="profNick" maxlength="32" value="${esc(ME.username)}">
+    </div>
+    <div class="field"><label>Email</label>
+      <input id="profEmail" type="email" maxlength="120" value="${esc(ME.email || "")}" placeholder="you@example.com">
+    </div>
+    <div class="field"><label>Аватар (URL или data:image/…)</label>
+      <input id="profAvatar" maxlength="3000000" value="${esc(ME.avatar || "")}" placeholder="https://…">
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="profClose">Закрыть</button>
+      <button class="btn" id="profSave">Сохранить</button>
+    </div>
+    <div class="actions" style="margin-top:8px">
+      <button class="btn ghost danger" id="profDelete">Удалить аккаунт</button>
+    </div>
+    <div class="err" id="profErr"></div>
+  `, () => {
+    $("#profClose").onclick = closeModal;
+    $("#profAvatar").addEventListener("input", () => {
+      const v = $("#profAvatar").value.trim();
+      $("#profAvPreview").innerHTML = avatarHTML(v, (ME.username||"?").slice(0,1).toUpperCase());
+    });
+    $("#profSave").onclick = async () => {
+      const nick = $("#profNick").value.trim();
+      const email = $("#profEmail").value.trim();
+      const avatar = $("#profAvatar").value.trim();
+      $("#profErr").textContent = "";
+      if (nick.length < 3 || nick.length > 32){ $("#profErr").textContent = "Ник: 3–32 символа."; return; }
+      try{
+        if (nick !== ME.username){
+          await api("/api/username", {method:"POST", body:{username: nick}});
+          ME.username = nick;
+        }
+        if (email !== (ME.email || "")){
+          await api("/api/email", {method:"POST", body:{email}});
+          ME.email = email;
+        }
+        if (avatar !== (ME.avatar || "")){
+          await api("/api/avatar", {method:"POST", body:{avatar}});
+          ME.avatar = avatar;
+        }
+        closeModal();
+        await refreshAll();
+      }catch(e){ $("#profErr").textContent = e.message; }
+    };
+    $("#profDelete").onclick = async () => {
+      if (!confirm("Удалить аккаунт? Это необратимо.")) return;
+      if (prompt("Введи DELETE для подтверждения:") !== "DELETE"){ $("#profErr").textContent = "Отменено."; return; }
+      try{
+        await api("/api/delete-account", {method:"POST", body:{confirm:"DELETE"}});
+        showAuth();
+      }catch(e){ $("#profErr").textContent = e.message; }
+    };
+  });
+});
+
+function ensureAdminButton(){
+  if (!ME || !ME.is_admin) return;
+  if ($("#btnAdmin")) return;
+  const btn = document.createElement("button");
+  btn.className = "icon-btn";
+  btn.id = "btnAdmin";
+  btn.title = "Админка";
+  btn.textContent = "🛠";
+  btn.addEventListener("click", openAdminPanel);
+  $("#btnLogout").before(btn);
 }
 
-async function endCall(){
-  if (call.room){ try { await postSignal({ type:'end' }); } catch(e){} }
-  clearInterval(call.pollTimer); call.pollTimer = null;
-  if (call.pc){ try { call.pc.close(); } catch(e){} call.pc = null; }
-  if (call.localStream){ call.localStream.getTracks().forEach(t => t.stop()); call.localStream = null; }
-  if (call.remoteAudio){ call.remoteAudio.pause(); call.remoteAudio = null; }
-  call.active = false; call.room = null; call.role = null;
-  offerHandled = false;
-  pendingIce = [];
-  hideCallModal();
+async function openAdminPanel(){
+  openSheet("Админка", `
+    <div class="actions" style="margin-bottom:10px">
+      <button class="btn ghost" id="admUsers">Пользователи</button>
+    </div>
+    <div id="admBody"></div>
+    <div class="actions"><button class="btn ghost" id="admClose">Закрыть</button></div>
+  `, () => {
+    $("#admClose").onclick = closeModal;
+    $("#admUsers").onclick = adminLoadUsers;
+  });
 }
 
-function showCallModal(text, buttons){
-  hideCallModal();
-  const box = el('div', {class:'modal'});
-  box.appendChild(el('h3', {id:'callTitle', text: text}));
-  const controls = el('div', {id:'callControls'});
-  if (buttons.includes('accept')){
-    const b = el('button', {class:'accept', type:'button', text:'Принять'});
-    b.addEventListener('click', acceptCall); controls.appendChild(b);
-  }
-  if (buttons.includes('reject')){
-    const b = el('button', {class:'reject', type:'button', text:'Отклонить'});
-    b.addEventListener('click', () => endCall()); controls.appendChild(b);
-  }
-  if (buttons.includes('end')){
-    const b = el('button', {class:'reject', type:'button', text:'Сбросить'});
-    b.addEventListener('click', () => endCall()); controls.appendChild(b);
-  }
-  box.appendChild(controls);
-  const slider = el('input', {type:'range', min:'0', max:'1', step:'0.05', value:'1'});
-  slider.addEventListener('input', () => { if (call.remoteAudio) call.remoteAudio.volume = Number(slider.value); });
-  box.appendChild(slider);
-  const overlay = el('div', {class:'overlay', id:'callOverlay'}, [box]);
-  document.body.appendChild(overlay);
-  call.modal = overlay;
+async function adminLoadUsers(){
+  const box = $("#admBody");
+  box.innerHTML = '<div class="empty">Загрузка…</div>';
+  try{
+    const r = await api("/api/admin/users");
+    if (!r.users.length){ box.innerHTML = '<div class="empty">Пусто.</div>'; return; }
+    box.innerHTML = r.users.map(u => `
+      <div class="row" style="cursor:pointer" data-adm-uid="${u.id}">
+        <div class="avatar">${avatarHTML(u.avatar, (u.username||"?").slice(0,1).toUpperCase())}</div>
+        <div class="meta">
+          <div class="name">${esc(u.username)} ${u.is_admin?'<span class="pinned-ico">admin</span>':''}</div>
+          <div class="prev">${u.online?"в сети":"off"} · ID ${u.id}</div>
+        </div>
+      </div>
+    `).join("");
+    $$("[data-adm-uid]", box).forEach(el => {
+      el.onclick = () => adminUserActions(Number(el.dataset.admUid));
+    });
+  }catch(e){ box.innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
 }
-function updateModal(text){
-  const t = document.getElementById('callTitle'); if (t) t.textContent = text;
-  const controls = document.getElementById('callControls');
-  if (controls && !controls.querySelector('.reject')){
-    const b = el('button', {class:'reject', type:'button', text:'Сбросить'});
-    b.addEventListener('click', () => endCall()); controls.appendChild(b);
-  }
-}
-function hideCallModal(){ if (call.modal){ call.modal.remove(); call.modal = null; } }
 
-/* ======== СТАРТ ======== */
-(async function start(){
-  try {
-    const d = await api('/api/me');
-    if (d.user){
-      state.me = { id: d.user.id, username: d.user.username, avatar: d.user.avatar || '', email: d.user.email || '', is_admin: !!d.user.is_admin };
-      await renderApp();
+async function adminUserActions(uid){
+  openSheet("Пользователь #" + uid, `
+    <div class="field"><label>Новый ник</label><input id="auNick" maxlength="32"></div>
+    <div class="field"><label>Новый пароль</label><input id="auPass" maxlength="64"></div>
+    <div class="field"><label>Аватар (URL/data)</label><input id="auAvatar" maxlength="3000000"></div>
+    <div class="actions">
+      <button class="btn ghost" id="auSetNick">Ник</button>
+      <button class="btn ghost" id="auSetPass">Пароль</button>
+      <button class="btn ghost" id="auSetAv">Аватар</button>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="auToggleAdmin">Сделать/снять админа</button>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="auBlock">Блок</button>
+      <button class="btn ghost" id="auUnblock">Разблок</button>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="auMsgs">Сообщения</button>
+      <button class="btn ghost danger" id="auDelete">Удалить</button>
+    </div>
+    <div class="err" id="auErr"></div>
+    <div class="actions"><button class="btn ghost" id="auClose">Закрыть</button></div>
+  `, () => {
+    $("#auClose").onclick = closeModal;
+    $("#auSetNick").onclick = async () => {
+      const v = $("#auNick").value.trim();
+      if (v.length < 3){ $("#auErr").textContent = "Ник: минимум 3."; return; }
+      try{ await api("/api/admin/set-username", {method:"POST", body:{user_id: uid, username: v}}); $("#auErr").textContent = "OK"; }
+      catch(e){ $("#auErr").textContent = e.message; }
+    };
+    $("#auSetPass").onclick = async () => {
+      const v = $("#auPass").value.trim();
+      if (v.length < 4){ $("#auErr").textContent = "Пароль: минимум 4."; return; }
+      try{ await api("/api/admin/set-password", {method:"POST", body:{user_id: uid, password: v}}); $("#auErr").textContent = "OK"; }
+      catch(e){ $("#auErr").textContent = e.message; }
+    };
+    $("#auSetAv").onclick = async () => {
+      const v = $("#auAvatar").value.trim();
+      try{ await api("/api/admin/set-avatar", {method:"POST", body:{user_id: uid, avatar: v}}); $("#auErr").textContent = "OK"; }
+      catch(e){ $("#auErr").textContent = e.message; }
+    };
+    $("#auToggleAdmin").onclick = async () => {
+      try{ await api("/api/admin/set-admin", {method:"POST", body:{user_id: uid, is_admin: true}}); $("#auErr").textContent = "OK"; }
+      catch(e){ $("#auErr").textContent = e.message; }
+    };
+    $("#auBlock").onclick = async () => {
+      try{ await api("/api/admin/block-user", {method:"POST", body:{user_id: uid}}); $("#auErr").textContent = "OK"; }
+      catch(e){ $("#auErr").textContent = e.message; }
+    };
+    $("#auUnblock").onclick = async () => {
+      try{ await api("/api/admin/unblock-user", {method:"POST", body:{user_id: uid}}); $("#auErr").textContent = "OK"; }
+      catch(e){ $("#auErr").textContent = e.message; }
+    };
+    $("#auMsgs").onclick = () => adminUserMessages(uid);
+    $("#auDelete").onclick = async () => {
+      if (!confirm("Удалить пользователя #" + uid + "?")) return;
+      try{ await api("/api/admin/delete-user", {method:"POST", body:{user_id: uid}}); closeModal(); }
+      catch(e){ $("#auErr").textContent = e.message; }
+    };
+  });
+}
+
+async function adminUserMessages(uid){
+  openSheet("Сообщения #" + uid, `<div id="aumBody" class="empty">Загрузка…</div>`, async () => {
+    const body = $("#aumBody");
+    try{
+      const r = await api("/api/admin/user-messages/" + uid);
+      if (!r.chats.length){ body.innerHTML = '<div class="empty">Нет диалогов.</div>'; return; }
+      body.innerHTML = r.chats.map(c => `
+        <div class="row" style="cursor:pointer" data-aum-peer="${c.id}">
+          <div class="avatar">${avatarHTML(c.avatar, (c.username||"?").slice(0,1).toUpperCase())}</div>
+          <div class="meta">
+            <div class="name">${esc(c.username)}</div>
+            <div class="prev">${esc(c.preview||"—")}</div>
+          </div>
+          <div class="side"><div class="time">${fmtTime(c.last_created)}</div></div>
+        </div>
+      `).join("");
+      $$("[data-aum-peer]", body).forEach(el => {
+        el.onclick = () => adminUserDialog(uid, Number(el.dataset.aumPeer));
+      });
+    }catch(e){ body.innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
+  });
+}
+
+async function adminUserDialog(uid, other){
+  openSheet("Диалог #" + uid + " ↔ #" + other, `<div id="audBody" class="empty">Загрузка…</div>`, async () => {
+    const body = $("#audBody");
+    try{
+      const r = await api("/api/admin/user-messages/" + uid + "/" + other);
+      if (!r.messages.length){ body.innerHTML = '<div class="empty">Пусто.</div>'; return; }
+      body.innerHTML = r.messages.map(m => {
+        const mine = m.sender === uid;
+        const cls = "msg " + (mine ? "me" : "other") + (m.deleted ? " deleted" : "");
+        const bodyText = m.deleted ? "сообщение удалено" : esc(m.text);
+        return `<div class="${cls}" style="max-width:100%">
+          <div style="font-size:11px;opacity:.7">#${m.sender} → #${m.receiver}</div>
+          <div>${bodyText}</div>
+          <div class="mtime">${fmtFullTime(m.created)}</div>
+        </div>`;
+      }).join("");
+    }catch(e){ body.innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
+  });
+}
+
+async function tryBecomeAdmin(){
+  const code = prompt("Код админа:");
+  if (!code) return;
+  try{
+    await api("/api/admin/secret", {method:"POST", body:{code}});
+    const r = await api("/api/me");
+    ME = r.user;
+    ensureAdminButton();
+    toast("Теперь ты админ.");
+  }catch(e){ toast(e.message); }
+}
+
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey && e.shiftKey && (e.key === "A" || e.key === "a")){
+    e.preventDefault();
+    tryBecomeAdmin();
+    return;
+  }
+  if (e.key === "Escape"){
+    if (!$("#modal").classList.contains("hidden")) { closeModal(); return; }
+    if (!$("#chat").classList.contains("hidden")) { $("#chatBack").click(); return; }
+  }
+  if (e.key === "/" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA"){
+    e.preventDefault();
+    if (state.tab === "people") $("#peopleSearch").focus();
+    else $("#btnSearchAll").click();
+  }
+});
+
+async function refreshAll(){
+  await loadDialogs();
+  pollUnreadTotal();
+  if (state.tab === "people") loadPeople();
+  if (state.tab === "groups") loadGroups();
+}
+
+async function openStickerPacks(){
+  openSheet("Стикер-паки", `
+    <div class="actions" style="margin-bottom:10px">
+      <button class="btn ghost" id="spNew">+ Новый пак</button>
+    </div>
+    <div id="spBody" class="empty">Загрузка…</div>
+    <div class="actions"><button class="btn ghost" id="spClose">Закрыть</button></div>
+  `, async () => {
+    $("#spClose").onclick = closeModal;
+    $("#spNew").onclick = () => createStickerPack();
+    await loadStickerPacks();
+  });
+}
+
+async function loadStickerPacks(){
+  const box = $("#spBody");
+  try{
+    const r = await api("/api/sticker-packs");
+    if (!r.packs.length){ box.innerHTML = '<div class="empty">Пока нет паков.</div>'; return; }
+    box.innerHTML = r.packs.map(p => `
+      <div class="kv" style="align-items:flex-start; flex-direction:column; gap:6px">
+        <div style="display:flex; justify-content:space-between; width:100%">
+          <b>${esc(p.name)}</b>
+          <button class="btn ghost small" data-sp-add="${p.id}">+ стикер</button>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap">
+          ${(p.stickers||[]).map(s => `
+            <span data-sticker="${esc(s.image)}" style="font-size:28px;cursor:pointer;padding:4px;background:var(--bg3);border-radius:8px">
+              ${s.image.startsWith("http")||s.image.startsWith("data:") ? '<img src="'+esc(s.image)+'" style="width:32px;height:32px;object-fit:contain">' : esc(s.image)}
+            </span>`).join("") || '<span style="color:var(--dim);font-size:12px">пусто</span>'}
+        </div>
+      </div>
+    `).join("");
+    $$("[data-sp-add]", box).forEach(el => {
+      el.onclick = () => addStickerToPack(Number(el.dataset.spAdd));
+    });
+    $$("[data-sticker]", box).forEach(el => {
+      el.onclick = () => sendSticker(el.dataset.sticker);
+    });
+  }catch(e){ box.innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
+}
+
+async function createStickerPack(){
+  const name = prompt("Название пака:");
+  if (!name || name.trim().length < 2) return;
+  try{
+    await api("/api/sticker-packs", {method:"POST", body:{name: name.trim()}});
+    await loadStickerPacks();
+  }catch(e){ toast(e.message); }
+}
+
+async function addStickerToPack(pid){
+  const image = prompt("Стикер (эмодзи или URL/data:image):");
+  if (!image) return;
+  try{
+    await api("/api/sticker-packs/" + pid + "/stickers", {method:"POST", body:{image}});
+    await loadStickerPacks();
+  }catch(e){ toast(e.message); }
+}
+
+async function sendSticker(image){
+  if (!state.current) return;
+  const c = state.current;
+  try{
+    let r;
+    if (c.type === "dm"){
+      r = await api("/api/messages", {method:"POST", body:{receiver: c.id, text: image, kind:"sticker"}});
     } else {
-      await renderAuth();
+      r = await api("/api/groups/" + c.id + "/messages", {method:"POST", body:{text: image, kind:"sticker"}});
     }
-  } catch(e){ await renderAuth(); }
+    state.messages.push(r.message);
+    renderMessages();
+    closeModal();
+  }catch(e){ toast(e.message); }
+}
+
+(function addStickerButton(){
+  const composer = $(".composer");
+  if (!composer || $("#btnStickers")) return;
+  const b = document.createElement("button");
+  b.className = "icon-btn";
+  b.id = "btnStickers";
+  b.title = "Стикеры";
+  b.textContent = "🧩";
+  b.style.fontSize = "20px";
+  b.addEventListener("click", openStickerPacks);
+  composer.insertBefore(b, composer.firstChild);
+})();
+
+let callState = { active:false, room:null, peer:null, poll:null };
+
+async function startCall(){
+  if (!state.current) return;
+  if (state.current.type !== "dm"){ toast("Звонки только в личных чатах"); return; }
+  const room = "r" + Math.random().toString(36).slice(2, 10);
+  callState.active = true;
+  callState.room = room;
+  callState.peer = state.current.id;
+  try{
+    await api("/api/call/invite", {method:"POST", body:{to: state.current.id, room}});
+    openCallUI("Исходящий звонок…", "Ждём ответа", true);
+    startCallPolling();
+  }catch(e){ toast(e.message); stopCall(); }
+}
+
+function openCallUI(title, sub, outgoing){
+  openSheet("Звонок", `
+    <div style="text-align:center; padding:20px 0">
+      <div style="font-size:48px; margin-bottom:8px">📞</div>
+      <div style="font-size:16px; font-weight:700" id="callTitle">${esc(title)}</div>
+      <div style="color:var(--dim); font-size:13px; margin-top:4px" id="callSub">${esc(sub)}</div>
+      <div class="actions" style="justify-content:center; margin-top:20px">
+        ${outgoing ? '<button class="btn ghost danger" id="callHang">Отменить</button>' : ''}
+      </div>
+    </div>
+  `, () => {
+    const h = $("#callHang");
+    if (h) h.onclick = stopCall;
+  });
+}
+
+function startCallPolling(){
+  if (callState.poll) clearInterval(callState.poll);
+  callState.poll = setInterval(async () => {
+    if (!callState.active) return;
+    try{
+      const r = await api("/api/signal/" + callState.room);
+      if (r.items && r.items.length){
+        $("#callTitle").textContent = "Соединено";
+        $("#callSub").textContent = "Сигналинг работает";
+      }
+    }catch(e){}
+  }, 2000);
+}
+
+function stopCall(){
+  callState.active = false;
+  if (callState.poll){ clearInterval(callState.poll); callState.poll = null; }
+  callState.room = null;
+  callState.peer = null;
+  closeModal();
+}
+
+(function addCallButton(){
+  const head = $(".chat-head");
+  if (!head || $("#btnCall")) return;
+  const b = document.createElement("button");
+  b.className = "icon-btn";
+  b.id = "btnCall";
+  b.title = "Позвонить";
+  b.textContent = "📞";
+  b.addEventListener("click", startCall);
+  $("#chatProfile").before(b);
+})();
+
+setInterval(async () => {
+  if (!ME) return;
+  try{
+    const r = await api("/api/call/incoming");
+    if (r.invite){
+      const inv = r.invite;
+      openSheet("Входящий звонок", `
+        <div style="text-align:center; padding:20px 0">
+          <div style="font-size:48px; margin-bottom:8px">📞</div>
+          <div style="font-size:16px; font-weight:700">${esc(inv.fromName || "?")}</div>
+          <div style="color:var(--dim); font-size:13px; margin-top:4px">входящий звонок</div>
+          <div class="actions" style="justify-content:center; margin-top:20px">
+            <button class="btn ghost danger" id="incReject">Отклонить</button>
+            <button class="btn" id="incAccept">Принять</button>
+          </div>
+        </div>
+      `, () => {
+        $("#incReject").onclick = () => { closeModal(); };
+        $("#incAccept").onclick = () => {
+          callState.active = true;
+          callState.room = inv.room;
+          callState.peer = inv.from;
+          openCallUI("Соединено", "Сигналинг работает", true);
+          startCallPolling();
+        };
+      });
+    }
+  }catch(e){}
+}, 4000);
+
+(async function init(){
+  setAuthMode("login");
+  try{
+    const r = await api("/api/me");
+    if (r.user){ await bootAfterAuth(); }
+    else showAuth();
+  }catch(e){ showAuth(); }
 })();
 </script>
 </body>
