@@ -126,14 +126,6 @@
   .search-result .time{font-size:11px;color:var(--muted);margin-top:3px}
   .bot-msg{opacity:0.95}
   .bot-msg .b{background:linear-gradient(135deg,#c9a7ff,#8fd0ff);color:#0e1621;font-weight:500}
-  .admin-view-banner{background:var(--red);color:#fff;padding:10px 14px;font-size:13px;font-weight:600;text-align:center}
-  .admin-view-wrap{display:flex;gap:10px;max-height:60vh;text-align:left}
-  .admin-view-chats{width:180px;flex:0 0 auto;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:4px}
-  .admin-view-chats .user{padding:8px;border-radius:8px;cursor:pointer;display:block}
-  .admin-view-chats .user.active{background:var(--hover)}
-  .admin-view-chats .user .uname{font-weight:600;font-size:13px}
-  .admin-view-chats .user .uprev{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .admin-view-msgs{flex:1;overflow:auto;background:var(--msgs-bg);border-radius:10px;padding:10px;min-width:0}
   @media (max-width: 700px){
     .app{max-width:none;position:relative;overflow:hidden}
     .side{width:100%;border-right:0;padding:14px;padding-top:calc(14px + env(safe-area-inset-top))}
@@ -143,8 +135,6 @@
     .b{max-width:85%}
     .card{margin:6vh 14px;padding:20px}
     .side h2{font-size:18px}
-    .admin-view-wrap{flex-direction:column;max-height:70vh}
-    .admin-view-chats{width:100%;max-height:120px}
   }
 </style>
 </head>
@@ -183,11 +173,6 @@ let chatHeadRef = null;
 let stickerPanelRef = null;
 let lastListHash = '';
 let playerActive = false;
-
-/* ===== новый рендер ===== */
-let currentMessages = [];
-let renderedIds = new Set();
-let bottomButton = null;
 
 const EMOJI_LIST = ('😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😜 🤪 😝 🤗 🤔 🤨 😐 😑 😶 🙄 😏 😣 😥 😮 🤐 😯 😪 😴 😛 😕 😟 🙁 😞 😔 😢 😭 😤 😠 😡 🤬 🤯 😳 🥺 😱 😨 😰 😓 😩 😫 🥱 🤤 👋 👍 👎 👌 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👏 🙌 👐 🤲 🤝 🙏 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 🔥 ✨ 🎉 🎊 🎁 🎈').split(/\s+/).filter(Boolean);
 
@@ -231,18 +216,6 @@ function openImageViewer(src){
   overlay.addEventListener('click', () => overlay.remove());
   document.body.appendChild(overlay);
 }
-
-/* ===== ESC закрывает верхний overlay ===== */
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape'){
-    const overlays = document.querySelectorAll('.overlay');
-    if (overlays.length) overlays[overlays.length - 1].remove();
-    const ctxs = document.querySelectorAll('.ctx-menu');
-    if (ctxs.length) ctxs[ctxs.length - 1].remove();
-    const reacts = document.querySelectorAll('.react-popup');
-    if (reacts.length) reacts[reacts.length - 1].remove();
-  }
-});
 
 /* ======== ТЁМНАЯ ТЕМА ======== */
 function applyTheme(){
@@ -371,13 +344,12 @@ async function handleBotMessage(text){
     if (t === 'да' || t === 'yes'){ state.botStep = 4; botSay('Кидай картинку 📎'); }
     else if (t === 'готово' || t === 'нет' || t === 'no'){
       state.botActive = false; state.botStep = 0;
-      botSay('Пак "' + state.botPackName + '" готов! Открой панель стикеров — кнопка 🧩');
+      botSay('Пак "' + state.botPackName + '" готов! Открывай панель стикеров — кнопка 🧩');
     } else { botSay('Напиши "да" или "готово"'); }
     return true;
   }
   return false;
 }
-
 /* ======== ЗАГРУЗКА СТИКЕРОВ ======== */
 async function loadStickers(){
   if (!stickerPanelRef) return;
@@ -407,6 +379,7 @@ async function loadStickers(){
     }
   } catch(e){ console.error(e); }
 }
+
 /* ======== ОСНОВНОЙ ЭКРАН ======== */
 async function renderApp(){
   clear(root);
@@ -654,9 +627,7 @@ async function renderApp(){
     else loadGroups(inpSearch.value);
   });
   btnSend.addEventListener('click', () => sendMessage(inpText));
-  inpText.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(inpText); }
-  });
+  inpText.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); sendMessage(inpText); } });
   inpText.addEventListener('input', () => {
     if (!state.peer) return;
     const now = Date.now();
@@ -733,10 +704,85 @@ async function renderApp(){
   }, 5000);
 }
 
-/* ======== ДИФФ-РЕНДЕР СООБЩЕНИЙ ======== */
+async function loadUsers(q){
+  try {
+    const d = await api('/api/users?q=' + encodeURIComponent(q || ''));
+    clear(usersBoxRef);
+    if (!d.users.length){ usersBoxRef.appendChild(el('div', {class:'muted', text:'Никого не найдено'})); return; }
+    for (const u of d.users){
+      const active = state.peer && state.peer.id === u.id;
+      const av = makeAvatar(u, 'small');
+      const dot = el('div', {class:'dot' + (u.online ? ' on' : '')});
+      const wrap = el('div', {});
+      wrap.appendChild(el('b', {text: u.username + (u.username === 'admin_bot' ? ' 🤖' : '')}));
+      const item = el('div', {class:'user' + (active ? ' active' : '')}, [av, wrap, dot]);
+      item.addEventListener('click', () => openChat(u));
+      usersBoxRef.appendChild(item);
+    }
+  } catch(e){ console.error(e); }
+}
+
+async function loadGroups(q){
+  try {
+    const d = await api('/api/groups');
+    clear(groupsBoxRef);
+    const list = (d.groups || []).filter(g => !q || g.name.toLowerCase().includes(q.toLowerCase()));
+    const btnNew = el('div', {class:'user', style:{background:'var(--hover)'}}, [
+      el('div', {class:'g-icon', text:'➕'}),
+      el('b', {text:'Создать группу'})
+    ]);
+    btnNew.addEventListener('click', openCreateGroupModal);
+    groupsBoxRef.appendChild(btnNew);
+    for (const g of list){
+      const active = state.group && state.group.id === g.id;
+      const item = el('div', {class:'user' + (active ? ' active' : '')}, [
+        el('div', {class:'g-icon', text:'👥'}),
+        el('b', {text: g.name})
+      ]);
+      item.addEventListener('click', () => openGroup(g));
+      groupsBoxRef.appendChild(item);
+    }
+  } catch(e){ console.error(e); }
+}
+
+async function openChat(user){
+  lastListHash = '';
+  state.peer = { id: user.id, username: user.username, avatar: user.avatar };
+  state.group = null; state.replyTo = null; state.editId = null; state.pendingImage = null;
+  state.botActive = false; state.botStep = 0;
+  chatHeadRef.querySelector('.name').textContent = user.username;
+  chatHeadRef.querySelector('.sub').textContent = '';
+  const headAva = chatHeadRef.querySelector('.row').firstChild;
+  clear(headAva);
+  headAva.appendChild(makeAvatar(user, 'small'));
+  const inp = document.querySelector('.compose input');
+  inp.disabled = false; inp.focus();
+  if (window.__refreshReplyPreview) window.__refreshReplyPreview();
+  if (window.__refreshAttachPreview) window.__refreshAttachPreview();
+  await refreshMessages();
+  if (isMobile() && appEl) appEl.classList.add('chat-open');
+}
+
+async function openGroup(g){
+  lastListHash = '';
+  state.group = g;
+  state.peer = null; state.replyTo = null; state.editId = null; state.pendingImage = null;
+  chatHeadRef.querySelector('.name').textContent = g.name;
+  chatHeadRef.querySelector('.sub').textContent = g.members ? (g.members.length + ' участн.') : '';
+  const headAva = chatHeadRef.querySelector('.row').firstChild;
+  clear(headAva);
+  headAva.appendChild(el('div', {class:'g-icon', text:'👥'}));
+  const inp = document.querySelector('.compose input');
+  inp.disabled = false; inp.focus();
+  if (window.__refreshReplyPreview) window.__refreshReplyPreview();
+  if (window.__refreshAttachPreview) window.__refreshAttachPreview();
+  await refreshMessages();
+  if (isMobile() && appEl) appEl.classList.add('chat-open');
+}
+
 async function refreshMessages(){
   try {
-    if (!state.me) return;
+    if (playerActive) return;
     let list, isGroup = false;
     if (state.group){
       const d = await api('/api/groups/' + state.group.id + '/messages');
@@ -746,105 +792,98 @@ async function refreshMessages(){
       list = d.messages;
     } else { return; }
 
-    if (!Array.isArray(list)) list = [];
-    const newIds = new Set(list.map(m => m.id));
-    const oldIds = renderedIds;
-
-    let removed = false;
-    for (const id of Array.from(oldIds)){ if (!newIds.has(id)){ removed = true; break; } }
-
-    const hashOf = m => JSON.stringify([
-      m.deleted, m.edited, m.kind, m.text,
-      (m.reactions || []).map(r => r.emoji).join(','),
+    const hash = JSON.stringify((list || []).map(m => [
+      m.id, m.kind, m.deleted, m.edited,
+      (m.reactions || []).map(r => r.emoji).join(''),
       m.reply_to || 0
-    ]);
-    const oldMap = new Map(currentMessages.map(m => [m.id, m]));
-    const changed = [];
-    for (const m of list){
-      const prev = oldMap.get(m.id);
-      if (!prev || hashOf(prev) !== hashOf(m)) changed.push(m);
-    }
-    const added = list.filter(m => !oldIds.has(m.id));
+    ]));
 
-    if (oldIds.size === 0 || removed || (changed.length + added.length) > 8){
-      currentMessages = list;
-      renderedIds = newIds;
-      renderList(list, isGroup);
-      return;
-    }
-
-    for (const m of changed) updateMessageNode(m, isGroup);
-
-    for (const m of added){
-      msgsBoxRef.appendChild(renderMessage(m, isGroup));
-      renderedIds.add(m.id);
-    }
-    currentMessages = list;
-
-    if (added.length > 0){
-      const atBottom = msgsBoxRef.scrollHeight - msgsBoxRef.scrollTop - msgsBoxRef.clientHeight < 80;
-      if (atBottom){
-        msgsBoxRef.scrollTop = msgsBoxRef.scrollHeight;
-        hideBottomButton();
-      } else {
-        showBottomButton();
-      }
-    }
+    if (hash === lastListHash) return;
+    lastListHash = hash;
+    renderList(list, isGroup);
   } catch(e){ console.error(e); }
-}
-
-function updateMessageNode(m, isGroup){
-  const old = msgsBoxRef.querySelector(`[data-mid="${m.id}"]`);
-  if (!old) return;
-  const newBubble = renderMessage(m, isGroup);
-  msgsBoxRef.replaceChild(newBubble, old.parentNode);
 }
 
 function renderList(list, isGroup){
   clear(msgsBoxRef);
-  renderedIds = new Set();
-  hideBottomButton();
-  if (!list.length){
-    msgsBoxRef.appendChild(el('div', {class:'muted', text:'Сообщений пока нет'}));
-    return;
-  }
-  for (const m of list){
-    msgsBoxRef.appendChild(renderMessage(m, isGroup));
-    renderedIds.add(m.id);
-  }
+  if (!list.length){ msgsBoxRef.appendChild(el('div', {class:'muted', text:'Сообщений пока нет'})); return; }
+  for (const m of list) msgsBoxRef.appendChild(renderMessage(m, isGroup));
   msgsBoxRef.scrollTop = msgsBoxRef.scrollHeight;
 }
 
-function showBottomButton(){
-  if (bottomButton) return;
-  bottomButton = el('button', {
-    type:'button',
-    text:'↓',
-    style:{
-      position:'fixed',
-      right:'20px',
-      bottom:'80px',
-      width:'48px',
-      height:'48px',
-      borderRadius:'50%',
-      background:'var(--primary)',
-      color:'#fff',
-      border:0,
-      fontSize:'22px',
-      cursor:'pointer',
-      boxShadow:'0 4px 16px rgba(0,0,0,0.3)',
-      zIndex:'9998'
-    },
-    on:{ click: () => {
-      msgsBoxRef.scrollTop = msgsBoxRef.scrollHeight;
-      hideBottomButton();
-    }}
+function makeVoicePlayer(src, msgId){
+  const wrap = el('div', {class:'player'});
+  const btn = el('button', {class:'play', type:'button', text:'▶'});
+  const bar = el('div', {class:'bar'});
+  const fill = el('div', {class:'fill'});
+  bar.appendChild(fill);
+  const timeEl = el('div', {class:'time', text:'0:00'});
+  wrap.appendChild(btn); wrap.appendChild(bar); wrap.appendChild(timeEl);
+
+  let audioCtx = null, buffer = null, source = null, startedAt = 0, pausedAt = 0;
+  let playing = false, duration = 0, raf = null;
+
+  fetch(src).then(r => r.arrayBuffer()).then(ab => {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx.decodeAudioData(ab).then(buf => {
+      buffer = buf; duration = buf.duration;
+      timeEl.textContent = fmtDur(duration);
+    }).catch(e => { timeEl.textContent = 'ошибка'; });
+  }).catch(()=>{ timeEl.textContent = 'ошибка'; });
+
+  function fmtDur(s){
+    s = Math.max(0, Math.round(s));
+    const m = Math.floor(s / 60);
+    const ss = String(s % 60).padStart(2,'0');
+    return m + ':' + ss;
+  }
+  function tick(){
+    if (!playing || !audioCtx || !buffer) return;
+    const cur = Math.min(audioCtx.currentTime - startedAt + pausedAt, duration);
+    fill.style.width = (cur / duration * 100) + '%';
+    timeEl.textContent = fmtDur(duration - cur);
+    if (cur >= duration){ stop(); }
+    else raf = requestAnimationFrame(tick);
+  }
+  function stop(){
+    playing = false;
+    btn.textContent = '▶';
+    fill.style.width = '0%';
+    pausedAt = 0;
+    if (source){ try { source.stop(); } catch(e){} source = null; }
+    if (raf){ cancelAnimationFrame(raf); raf = null; }
+    timeEl.textContent = fmtDur(duration);
+    playerActive = false;
+    refreshMessages();
+  }
+  btn.addEventListener('click', async () => {
+    if (!buffer){
+      await new Promise(r => setTimeout(r, 150));
+      if (!buffer){ timeEl.textContent = 'загрузка…'; return; }
+    }
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    if (playing){
+      pausedAt += audioCtx.currentTime - startedAt;
+      try { source.stop(); } catch(e){}
+      playing = false;
+      btn.textContent = '▶';
+      if (raf){ cancelAnimationFrame(raf); raf = null; }
+      playerActive = false; refreshMessages(); return;
+    }
+    source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.onended = () => { if (playing) stop(); };
+    source.start(0, pausedAt);
+    startedAt = audioCtx.currentTime;
+    playing = true;
+    btn.textContent = '⏸';
+    playerActive = true;
+    tick();
   });
-  document.body.appendChild(bottomButton);
+  return wrap;
 }
-function hideBottomButton(){
-  if (bottomButton){ bottomButton.remove(); bottomButton = null; }
-}
+
 function renderMessage(m, isGroup){
   const out = m.sender === state.me.id;
   const b = el('div', {class: 'b' + (out ? ' out' : ''), 'data-mid': m.id});
@@ -888,7 +927,7 @@ function renderMessage(m, isGroup){
 
   b.addEventListener('contextmenu', (e) => { e.preventDefault(); showCtxMenu(e.clientX, e.clientY, m, out, isGroup); });
   let touchT;
-  b.addEventListener('touchstart', () => { touchT = setTimeout(() => showCtxMenu(100, 200, m, out, isGroup), 600); }, {passive:true});
+  b.addEventListener('touchstart', () => { touchT = setTimeout(() => showCtxMenu(100, 200, m, out, isGroup), 600); });
   b.addEventListener('touchend', () => clearTimeout(touchT));
 
   return el('div', {class:'brow' + (out ? ' out' : '')}, [b]);
@@ -1008,12 +1047,9 @@ function openSearchModal(){
   document.body.appendChild(overlay);
 }
 
-let sending = false;
 async function sendMessage(inpText){
-  if (sending) return;
   const text = inpText.value.trim();
   if (state.pendingImage){
-    sending = true;
     const payload = { text: state.pendingImage, kind: 'image' };
     if (state.replyTo) payload.reply_to = state.replyTo.id;
     try {
@@ -1022,14 +1058,13 @@ async function sendMessage(inpText){
       } else if (state.peer){
         payload.receiver = state.peer.id;
         await api('/api/messages', { method:'POST', body: JSON.stringify(payload) });
-      } else { sending = false; return; }
+      } else { return; }
       state.pendingImage = null;
       if (window.__refreshReplyPreview) window.__refreshReplyPreview();
       if (window.__refreshAttachPreview) window.__refreshAttachPreview();
       state.replyTo = null;
       await refreshMessages();
-    } catch(e){ alert('Не отправлено: ' + e.message); }
-    sending = false;
+    } catch(e){ alert(e.message); }
     return;
   }
   if (!text) return;
@@ -1040,7 +1075,7 @@ async function sendMessage(inpText){
       state.me.is_admin = true;
       botSay('✅ Права администратора активированы. Выйдите и зайдите заново.');
     } catch(e){
-      // молчим, не подсказываем
+      botSay('❌ ' + (e.message || 'Неверный код'));
     }
     return;
   }
@@ -1053,7 +1088,6 @@ async function sendMessage(inpText){
     startBotStickers();
     return;
   }
-  sending = true;
   try {
     if (state.editId){
       if (state.group){
@@ -1065,7 +1099,6 @@ async function sendMessage(inpText){
       inpText.value = '';
       if (window.__refreshReplyPreview) window.__refreshReplyPreview();
       await refreshMessages();
-      sending = false;
       return;
     }
     const payload = { text, kind: 'text' };
@@ -1075,13 +1108,12 @@ async function sendMessage(inpText){
     } else if (state.peer){
       payload.receiver = state.peer.id;
       await api('/api/messages', { method:'POST', body: JSON.stringify(payload) });
-    } else { sending = false; return; }
+    } else { return; }
     inpText.value = '';
     state.replyTo = null;
     if (window.__refreshReplyPreview) window.__refreshReplyPreview();
     await refreshMessages();
-  } catch(e){ alert('Не отправлено: ' + e.message); }
-  sending = false;
+  } catch(e){ alert(e.message); }
 }
 
 async function blockCurrentPeer(){
@@ -1102,7 +1134,6 @@ async function blockCurrentPeer(){
     if (window.__switchTab) window.__switchTab('users');
   } catch(e){ alert(e.message); }
 }
-
 /* ======== ПРОФИЛЬ ======== */
 function openProfileModal(){
   const overlay = el('div', {class:'overlay'});
@@ -1225,98 +1256,6 @@ function openProfileModal(){
   document.body.appendChild(overlay);
 }
 
-/* ======== ПЕРЕПИСКА ПОЛЬЗОВАТЕЛЯ (АДМИН) ======== */
-function openUserMessagesModal(targetId, targetName){
-  const overlay = el('div', {class:'overlay'});
-  const close = () => overlay.remove();
-
-  const banner = el('div', {class:'admin-view-banner', text:'👁 Режим просмотра — только чтение · ' + targetName});
-
-  const chatsBox = el('div', {class:'admin-view-chats'});
-  const msgsBox = el('div', {class:'admin-view-msgs'});
-
-  async function loadChats(){
-    clear(chatsBox);
-    chatsBox.appendChild(el('div', {class:'muted', text:'Загрузка...'}));
-    try {
-      const d = await api('/api/admin/user-messages/' + targetId);
-      clear(chatsBox);
-      if (!d.chats || !d.chats.length){
-        chatsBox.appendChild(el('div', {class:'muted', text:'Нет диалогов'}));
-        return;
-      }
-      for (const c of d.chats){
-        const item = el('div', {class:'user'}, [
-          el('div', {class:'uname', text: c.username}),
-          el('div', {class:'uprev', text: c.preview || '—'})
-        ]);
-        item.addEventListener('click', () => {
-          chatsBox.querySelectorAll('.user').forEach(n => n.classList.remove('active'));
-          item.classList.add('active');
-          loadDialog(c.id, c.username);
-        });
-        chatsBox.appendChild(item);
-      }
-    } catch(e){
-      clear(chatsBox);
-      chatsBox.appendChild(el('div', {class:'muted', text:'Ошибка: ' + e.message}));
-    }
-  }
-
-  async function loadDialog(otherId, otherName){
-    clear(msgsBox);
-    msgsBox.appendChild(el('div', {class:'muted', text:'Загрузка...'}));
-    try {
-      const d = await api('/api/admin/user-messages/' + targetId + '/' + otherId);
-      clear(msgsBox);
-      if (!d.messages || !d.messages.length){
-        msgsBox.appendChild(el('div', {class:'muted', text:'Сообщений нет'}));
-        return;
-      }
-      for (const m of d.messages){
-        const out = m.sender === targetId;
-        const b = el('div', {class:'b' + (out ? ' out' : '')});
-        if (m.deleted){
-          b.appendChild(el('span', {class:'deleted', text:'сообщение удалено'}));
-        } else if (m.kind === 'voice'){
-          b.appendChild(el('span', {text:'🎤 голосовое (' + Math.round(m.created) + ')'}));
-        } else if (m.kind === 'image'){
-          const img = el('img', {class:'att', src: m.text});
-          img.addEventListener('click', () => openImageViewer(m.text));
-          b.appendChild(img);
-        } else if (m.kind === 'sticker'){
-          const img = el('img', {class:'sticker', src: m.text});
-          b.appendChild(img);
-        } else {
-          b.appendChild(document.createTextNode(m.text));
-        }
-        const meta = el('div', {class:'meta'});
-        meta.appendChild(document.createTextNode(fmtTime(m.created)));
-        if (m.edited) meta.appendChild(el('span', {class:'edited', text:'изм.'}));
-        b.appendChild(meta);
-        msgsBox.appendChild(el('div', {class:'brow' + (out ? ' out' : '')}, [b]));
-      }
-      msgsBox.scrollTop = msgsBox.scrollHeight;
-    } catch(e){
-      clear(msgsBox);
-      msgsBox.appendChild(el('div', {class:'muted', text:'Ошибка: ' + e.message}));
-    }
-  }
-
-  loadChats();
-
-  overlay.appendChild(el('div', {class:'modal', style:{maxWidth:'900px', width:'96vw', maxHeight:'94vh'}}, [
-    banner,
-    el('h3', {text:'💬 Переписка: ' + targetName, style:{marginTop:'10px'}}),
-    el('div', {class:'admin-view-wrap'}, [chatsBox, msgsBox]),
-    el('div', {class:'row-btns'}, [
-      el('button', {type:'button', text:'Закрыть', style:{padding:'12px 32px', fontSize:'16px'}, on:{click: close}})
-    ])
-  ]));
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.body.appendChild(overlay);
-}
-
 /* ======== АДМИН-ПАНЕЛЬ ======== */
 async function openAdminPanel(){
   const overlay = el('div', {class:'overlay'});
@@ -1345,9 +1284,6 @@ async function openAdminPanel(){
           el('div', {style:{fontSize:'12px', color:'var(--muted)'}, text: 'ID ' + u.id + (u.email ? ' · ' + u.email : '')})
         ]);
         const btns = el('div', {style:{display:'flex', flexWrap:'wrap', gap:'4px', marginTop:'4px'}});
-        const btnMsg = el('button', {type:'button', text:'💬 Переписка', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--green)', background:'var(--green)', color:'#fff'}});
-        btnMsg.addEventListener('click', () => openUserMessagesModal(u.id, u.username));
-        btns.appendChild(btnMsg);
         const btnNick = el('button', {type:'button', text:'Ник', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
         btnNick.addEventListener('click', async () => {
           const n = prompt('Новый ник для ' + u.username, u.username);
@@ -1355,7 +1291,6 @@ async function openAdminPanel(){
           try { await api('/api/admin/set-username', { method:'POST', body: JSON.stringify({ user_id: u.id, username: n.trim() })}); loadList(); }
           catch(e){ alert(e.message); }
         });
-        btns.appendChild(btnNick);
         const btnPwd = el('button', {type:'button', text:'Пароль', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
         btnPwd.addEventListener('click', async () => {
           const p = prompt('Новый пароль (мин 4)');
@@ -1363,7 +1298,6 @@ async function openAdminPanel(){
           try { await api('/api/admin/set-password', { method:'POST', body: JSON.stringify({ user_id: u.id, password: p })}); alert('Пароль сменён'); }
           catch(e){ alert(e.message); }
         });
-        btns.appendChild(btnPwd);
         const btnAva = el('button', {type:'button', text:'Аватар', style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--border2)', background:'var(--card)', color:'var(--text)'}});
         btnAva.addEventListener('click', () => {
           const inp = document.createElement('input');
@@ -1380,7 +1314,7 @@ async function openAdminPanel(){
           };
           inp.click();
         });
-        btns.appendChild(btnAva);
+        btns.appendChild(btnNick); btns.appendChild(btnPwd); btns.appendChild(btnAva);
         if (!isMe){
           const roleText = u.is_admin ? 'Снять админку' : 'Сделать админом';
           const btnRole = el('button', {type:'button', text: roleText, style:{padding:'4px 8px', fontSize:'12px', borderRadius:'6px', border:'1px solid var(--primary)', background:'var(--card)', color:'var(--primary)'}});
@@ -1467,30 +1401,17 @@ async function openCreateGroupModal(){
 const call = { active:false, pc:null, localStream:null, remoteAudio:null, room:null, role:null, pollTimer:null, modal:null };
 let offerHandled = false;
 
-let pendingIce = [];
-async function flushIce(){
-  if (!call.pc || !call.pc.remoteDescription) return;
-  const list = pendingIce;
-  pendingIce = [];
-  for (const c of list){
-    try { await call.pc.addIceCandidate(c); } catch(e){ console.warn('addIceCandidate', e); }
-  }
-}
-
 function canCall(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.RTCPeerConnection); }
-
 function getIceServers(){
   return [
     { urls:'stun:stun.l.google.com:19302' },
     { urls:'stun:stun1.l.google.com:19302' },
-    { urls:'stun:stun2.l.google.com:19302' },
-    { urls:'stun:stun.cloudflare.com:3478' }
+    { urls:'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject' },
+    { urls:'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject' }
   ];
 }
 function newPc(){
   const pc = new RTCPeerConnection({ iceServers: getIceServers() });
-  let dropTimer = null;
-  let wasConnected = false;
   pc.onicecandidate = (ev) => { if (ev.candidate) postSignal({ type:'ice', candidate: ev.candidate.toJSON() }); };
   pc.ontrack = (ev) => {
     if (!call.remoteAudio){ call.remoteAudio = new Audio(); call.remoteAudio.autoplay = true; }
@@ -1499,20 +1420,8 @@ function newPc(){
   };
   pc.oniceconnectionstatechange = () => {
     const s = pc.iceConnectionState;
-    clearTimeout(dropTimer);
-    if (s === 'connected' || s === 'completed'){
-      wasConnected = true;
-      updateModal('В разговоре');
-    } else if (s === 'disconnected'){
-      dropTimer = setTimeout(() => {
-        if (pc.iceConnectionState === 'disconnected') endCall();
-      }, 6000);
-    } else if (s === 'failed'){
-      if (!wasConnected) alert('Не удалось соединиться: сеть не пропускает прямое соединение.');
-      endCall();
-    } else if (s === 'closed'){
-      endCall();
-    }
+    if (s === 'connected' || s === 'completed') updateModal('В разговоре');
+    if (s === 'disconnected' || s === 'failed' || s === 'closed') endCall();
   };
   return pc;
 }
@@ -1523,7 +1432,6 @@ async function startCall(){
   if (call.active) return alert('Звонок уже идёт');
   if (!canCall()) return alert('Этот браузер не поддерживает звонки');
   offerHandled = false;
-  pendingIce = [];
   call.room = Math.random().toString(36).substring(2, 10);
   call.role = 'caller'; call.active = true;
   try { call.localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
@@ -1546,7 +1454,6 @@ setInterval(async () => {
     const d = await r.json();
     if (d.invite){
       call.room = d.invite.room; call.role = 'callee'; offerHandled = false;
-      pendingIce = [];
       showCallModal('Входящий звонок от ' + d.invite.fromName, ['accept', 'reject']);
     }
   } catch(e){}
@@ -1562,7 +1469,7 @@ function startPolling(){
       const d = await r.json();
       if (!d.items || !d.items.length) return;
       for (const sig of d.items){
-        const key = JSON.stringify(sig);
+        const key = JSON.stringify(sig).slice(0, 200);
         if (seen.has(key)) continue;
         seen.add(key);
         await handleSignal(sig);
@@ -1577,7 +1484,6 @@ async function handleSignal(sig){
     offerHandled = true;
     try {
       await call.pc.setRemoteDescription({ type:'offer', sdp: sig.sdp });
-      await flushIce();
       const ans = await call.pc.createAnswer();
       await call.pc.setLocalDescription(ans);
       await postSignal({ type:'answer', sdp: ans.sdp });
@@ -1586,22 +1492,10 @@ async function handleSignal(sig){
     return;
   }
   if (sig.type === 'answer' && call.role === 'caller'){
-    try {
-      if (call.pc.signalingState !== 'stable'){
-        await call.pc.setRemoteDescription({ type:'answer', sdp: sig.sdp });
-        await flushIce();
-      }
-    } catch(e){ console.error('answer', e); }
+    try { if (call.pc.signalingState !== 'stable') await call.pc.setRemoteDescription({ type:'answer', sdp: sig.sdp }); } catch(e){}
     return;
   }
-  if (sig.type === 'ice'){
-    if (call.pc.remoteDescription){
-      try { await call.pc.addIceCandidate(sig.candidate); } catch(e){ console.warn('ice', e); }
-    } else {
-      pendingIce.push(sig.candidate);
-    }
-    return;
-  }
+  if (sig.type === 'ice'){ try { await call.pc.addIceCandidate(sig.candidate); } catch(e){} return; }
   if (sig.type === 'end'){ endCall(); }
 }
 
@@ -1635,7 +1529,6 @@ async function endCall(){
   if (call.remoteAudio){ call.remoteAudio.pause(); call.remoteAudio = null; }
   call.active = false; call.room = null; call.role = null;
   offerHandled = false;
-  pendingIce = [];
   hideCallModal();
 }
 
